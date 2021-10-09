@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use derivative::Derivative;
 
-use crate::error::PhantomError;
+use crate::error::{Error, PhantomError};
 use crate::parser::Input;
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
@@ -48,11 +48,11 @@ pub enum Sign {
 }
 
 impl Sign {
-    pub fn from_char(sign: char) -> anyhow::Result<Self> {
+    pub fn from_char(sign: char) -> Result<Self, Error> {
         match sign {
             '+' => Ok(Sign::Positive),
             '-' => Ok(Sign::Negative),
-            _ => Err(anyhow!("Expected '+' or '-', got {}", sign)),
+            _ => Err(Error::AnyError(format!("expected '+' or '-', got {}", sign))),
         }
     }
 }
@@ -117,7 +117,7 @@ pub struct Decimal {
     pub sign: Option<Sign>,
     pub whole: Option<u64>,
     pub fractional: u64,
-    pub exponent: Option<(Option<Sign>, u16)>
+    pub exponent: Option<(Option<Sign>, u16)>,
 }
 
 impl Decimal {

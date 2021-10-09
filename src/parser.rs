@@ -3,26 +3,28 @@ use crate::ast::{
 };
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{alphanumeric1, char as single_char, digit1, multispace0, one_of};
-use nom::combinator::{map, map_res, opt};
-use nom::error::ParseError;
+use nom::character::complete::{alphanumeric1, digit1, multispace0, one_of};
+use nom::combinator::{cut, map, map_res, opt};
+use nom::error::{context, ParseError, VerboseError};
 use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
-use nom::IResult;
 use nom_locate::{position, LocatedSpan};
 use std::str::FromStr;
+use crate::parser::util::one_char;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
+pub type IResult<'a, I, O> = nom::IResult<I, O, crate::error::Error>;
 
 mod string;
+mod util;
 
 pub use self::string::parse_string as string;
 
-pub fn spanned<'a, F: 'a, O, E: ParseError<Input<'a>>>(
+pub fn spanned<'a, F: 'a, O>(
     mut inner: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Spanned<O>, E>
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Spanned<O>>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
     O: 'a,
 {
     ws(move |input: Input<'a>| {
@@ -34,11 +36,11 @@ where
     })
 }
 
-fn ws<'a, F: 'a, O, E: ParseError<Input<'a>>>(
+fn ws<'a, F: 'a, O>(
     inner: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
     delimited(multispace0, inner, multispace0)
 }
@@ -79,7 +81,7 @@ pub fn integer(input: Input) -> IResult<Input, Integer> {
 
 fn decimal_exp(input: Input) -> IResult<Input, Option<(Option<Sign>, u16)>> {
     opt(preceded(
-        alt((single_char('e'), single_char('E'))),
+        alt((one_char('e'), one_char('E'))),
         pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
     ))(input)
 }
@@ -95,7 +97,7 @@ fn decimal_std(input: Input) -> IResult<Input, Decimal> {
     let x = map(
         separated_pair(
             decimal_unsigned,
-            single_char('.'),
+            one_char('.'),
             pair(decimal_unsigned, decimal_exp),
         ),
         |(whole, (fractional, exp))| Decimal::new(sign.clone(), Some(whole), fractional, exp),
@@ -108,7 +110,7 @@ fn decimal_std(input: Input) -> IResult<Input, Decimal> {
 fn decimal_frac(input: Input) -> IResult<Input, Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
-        preceded(single_char('.'), pair(decimal_unsigned, decimal_exp)),
+        preceded(one_char('.'), pair(decimal_unsigned, decimal_exp)),
         |(fractional, exp)| Decimal::new(None, None, fractional, exp),
     )(input);
 
@@ -120,7 +122,7 @@ fn decimal(input: Input) -> IResult<Input, Decimal> {
 }
 
 fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
-    let pair = separated_pair(spanned(ident), tag(":"), spanned(expr));
+    let pair = separated_pair(spanned(ident), context("colon", cut(one_char(':'))), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
@@ -128,24 +130,26 @@ fn struct_inner(input: Input) -> IResult<Input, Vec<Spanned<KeyValue<Ident>>>> {
     separated_list1(tag(","), spanned(ident_val_pair))(input)
 }
 
-/*
-fn block<'a, F: 'a, O, E: ParseError<Input<'a>>>(
-    start_tag: &'a str,
+fn block<'a, F: 'a, O>(
+    start_tag: char,
     inner: F,
-    end_tag: &'a str,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
+    end_tag: char,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
-    terminated(preceded(tag(start_tag), ws(inner)), tag(end_tag))
+    delimited(
+        one_char(start_tag),
+        inner,
+        context("closing bracket", cut(one_char(end_tag))),
+    )
 }
- */
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
     let (input, struct_ident) = opt(spanned(ident))(input)?;
     // Need to create temp var for borrow checker
     let x = map(
-        spanned(delimited(single_char('('), struct_inner, single_char(')'))),
+        spanned(block('(', struct_inner, ')')),
         |fields| Struct {
             fields,
             ident: struct_ident.clone(),
@@ -176,6 +180,15 @@ mod tests {
         (@result $parser:ident,$input:expr) => {
             $parser(Input::new($input))
         };
+    }
+
+    #[test]
+    fn good_missing_colon_error() {
+        let input = "Transform(pos 5)";
+        assert_eq!(
+            eval!(@result expr, input).unwrap_err().to_string(),
+            r#"Parsing Failure: Chain { error: ContextError { offset: Offset(1, 14), context: "colon" }, cause: ExpectedChar(':') }"#.to_owned()
+        );
     }
 
     #[test]
@@ -235,10 +248,7 @@ mod tests {
             eval!(integer, "-1"),
             Integer::new_test(Some(Sign::Negative), 1)
         );
-        assert_eq!(
-            eval!(integer, "123"),
-            Integer::new_test(None, 123)
-        );
+        assert_eq!(eval!(integer, "123"), Integer::new_test(None, 123));
         assert_eq!(
             eval!(integer, "+123"),
             Integer::new_test(Some(Sign::Positive), 123)
