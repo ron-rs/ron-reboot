@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use derivative::Derivative;
 
 use crate::error::{Error, PhantomError};
@@ -52,7 +51,10 @@ impl Sign {
         match sign {
             '+' => Ok(Sign::Positive),
             '-' => Ok(Sign::Negative),
-            _ => Err(Error::AnyError(format!("expected '+' or '-', got {}", sign))),
+            _ => Err(Error::AnyError(format!(
+                "expected '+' or '-', got {}",
+                sign
+            ))),
         }
     }
 }
@@ -190,6 +192,7 @@ impl<'a> Struct<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr<'a> {
+    Bool(bool),
     Struct(Box<Struct<'a>>),
     Integer(Integer),
     String(String),

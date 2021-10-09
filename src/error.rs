@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
+use crate::parser::Input;
 use err_derive::Error;
 use nom::error::{ContextError, FromExternalError, ParseError};
-use crate::parser::Input;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Error)]
 pub enum PhantomError {}
@@ -50,12 +50,18 @@ pub enum Error {
 
 impl ParseError<Input<'_>> for Error {
     fn from_error_kind(input: Input, kind: nom::error::ErrorKind) -> Self {
-        Error::ParseError { offset: input.into(), code: kind }
+        Error::ParseError {
+            offset: input.into(),
+            code: kind,
+        }
     }
 
     fn append(input: Input, code: nom::error::ErrorKind, other: Self) -> Self {
         Error::Chain {
-            error: Box::new(Error::ParseError { offset: input.into(), code}),
+            error: Box::new(Error::ParseError {
+                offset: input.into(),
+                code,
+            }),
             cause: Box::new(other),
         }
     }
@@ -68,7 +74,7 @@ impl ContextError<Input<'_>> for Error {
                 offset: input.into(),
                 context,
             }),
-            cause: Box::new(other)
+            cause: Box::new(other),
         }
     }
 }
@@ -78,9 +84,10 @@ impl<E: std::error::Error> FromExternalError<Input<'_>, E> for Error {
     fn from_external_error(input: Input, kind: nom::error::ErrorKind, e: E) -> Self {
         Error::Chain {
             error: Box::new(Error::AnyError(e.to_string())),
-            cause: Box::new(Error::ParseError { offset: input.into(), code: kind }),
+            cause: Box::new(Error::ParseError {
+                offset: input.into(),
+                code: kind,
+            }),
         }
-
     }
 }
-

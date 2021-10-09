@@ -1,17 +1,18 @@
 use crate::ast::{
     Decimal, Expr, Ident, Integer, KeyValue, Sign, SignedInteger, Spanned, Struct, UnsignedInteger,
 };
-use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::{alphanumeric1, digit1, multispace0, one_of};
-use nom::combinator::{cut, map, map_res, opt};
-use nom::error::{context, ParseError, VerboseError};
-use nom::multi::separated_list1;
-use nom::sequence::{delimited, pair, preceded, separated_pair};
-use nom_locate::{position, LocatedSpan};
-use std::str::FromStr;
-use nom_supreme::error::ErrorTree;
 use crate::parser::util::one_char;
+use nom::branch::alt;
+use nom::character::complete::{alphanumeric1, digit1, multispace0};
+use nom::combinator::{cut, map, map_res, opt};
+use nom::error::context;
+use nom::multi::separated_list1;
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
+use nom_locate::{position, LocatedSpan};
+use nom_supreme::error::ErrorTree;
+use nom_supreme::tag::complete::tag;
+use nom_supreme::ParserExt;
+use std::str::FromStr;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type IResult<'a, I, O> = nom::IResult<I, O, ErrorTree<Input<'a>>>;
@@ -37,9 +38,7 @@ where
     })
 }
 
-fn ws<'a, F: 'a, O>(
-    inner: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
+fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
 where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
@@ -51,7 +50,13 @@ pub fn ident(input: Input) -> IResult<Input, Ident> {
 }
 
 pub fn sign(input: Input) -> IResult<Input, Sign> {
-    map_res(one_of("+-"), Sign::from_char)(input)
+    context(
+        "sign",
+        alt((
+            tag("+").value(Sign::Positive),
+            tag("-").value(Sign::Negative),
+        )),
+    )(input)
 }
 
 fn decimal_unsigned(input: Input) -> IResult<Input, u64> {
@@ -74,10 +79,13 @@ pub fn signed_integer(input: Input) -> IResult<Input, SignedInteger> {
 }
 
 pub fn integer(input: Input) -> IResult<Input, Integer> {
-    alt((
-        map(unsigned, Integer::Unsigned),
-        map(signed_integer, Integer::Signed),
-    ))(input)
+    context(
+        "integer",
+        alt((
+            map(unsigned, Integer::Unsigned),
+            map(signed_integer, Integer::Signed),
+        )),
+    )(input)
 }
 
 fn decimal_exp(input: Input) -> IResult<Input, Option<(Option<Sign>, u16)>> {
@@ -119,11 +127,11 @@ fn decimal_frac(input: Input) -> IResult<Input, Decimal> {
 }
 
 fn decimal(input: Input) -> IResult<Input, Decimal> {
-    alt((decimal_std, decimal_frac))(input)
+    context("decimal", alt((decimal_std, decimal_frac)))(input)
 }
 
 fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
-    let pair = separated_pair(spanned(ident), context("colon", cut(one_char(':'))), spanned(expr));
+    let pair = separated_pair(spanned(ident), cut(one_char(':')), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
@@ -139,34 +147,39 @@ fn block<'a, F: 'a, O>(
 where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
-    delimited(
-        one_char(start_tag),
-        inner,
-        context("closing bracket", cut(one_char(end_tag))),
-    )
+    delimited(one_char(start_tag), inner, cut(one_char(end_tag)))
 }
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
-    let (input, struct_ident) = opt(spanned(ident))(input)?;
+    let ident_struct = opt(spanned(ident));
+    let untagged_struct = spanned(block('(', terminated(struct_inner, opt(tag(","))), ')'));
     // Need to create temp var for borrow checker
     let x = map(
-        spanned(block('(', struct_inner, ')')),
-        |fields| Struct {
-            fields,
-            ident: struct_ident.clone(),
-        },
+        pair(ident_struct, untagged_struct).context("struct"),
+        |(ident, fields)| Struct { fields, ident },
     )(input);
 
     x
 }
 
+pub fn bool(input: Input) -> IResult<Input, bool> {
+    context(
+        "bool",
+        alt((tag("true").value(true), tag("false").value(false))),
+    )(input)
+}
+
 pub fn expr(input: Input) -> IResult<Input, Expr> {
-    alt((
-        map(r#struct, Expr::from_struct),
-        map(integer, Expr::Integer),
-        map(decimal, Expr::Decimal),
-        map(string, Expr::String),
-    ))(input)
+    context(
+        "expression",
+        alt((
+            map(bool, Expr::Bool),
+            map(r#struct, Expr::from_struct),
+            map(integer, Expr::Integer),
+            map(decimal, Expr::Decimal),
+            map(string, Expr::String),
+        )),
+    )(input)
 }
 
 #[cfg(test)]
@@ -184,12 +197,21 @@ mod tests {
     }
 
     #[test]
-    fn good_missing_colon_error() {
-        let input = "Transform(pos 5)";
+    fn trailing_commas() {
+        let input = "Transform(pos: 5,)";
         assert_eq!(
-            eval!(@result expr, input).unwrap_err().to_string(),
-            r#"Parsing Failure: Chain { error: ContextError { offset: Offset(1, 14), context: "colon" }, cause: ExpectedChar(':') }"#.to_owned()
+            eval!(r#struct, input),
+            Struct::new_test(
+                Some("Transform"),
+                vec![("pos", UnsignedInteger::new(5).to_expr())]
+            )
         );
+    }
+
+    #[test]
+    fn missing_colon() {
+        let input = "Transform(pos 5)";
+        assert!(eval!(@result expr, input).is_err());
     }
 
     #[test]

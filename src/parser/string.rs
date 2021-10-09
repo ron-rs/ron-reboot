@@ -2,11 +2,11 @@ use nom::branch::alt;
 use nom::bytes::streaming::{is_not, take_while_m_n};
 use nom::character::streaming::{char as single_char, multispace1};
 use nom::combinator::{map, map_opt, map_res, value, verify};
-use nom::error::{FromExternalError, ParseError};
+use nom::error::context;
 use nom::multi::fold_many0;
 use nom::sequence::{delimited, preceded};
 
-use crate::parser::{Input, IResult};
+use crate::parser::{IResult, Input};
 
 // parser combinators are constructed from the bottom up:
 // first we write parsers for the smallest elements (escaped characters),
@@ -15,8 +15,7 @@ use crate::parser::{Input, IResult};
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
 /// to parse sequences like \u{00AC}.
-fn parse_unicode<'a>(input: Input<'a>) -> IResult<Input<'a>, char>
-{
+fn parse_unicode<'a>(input: Input<'a>) -> IResult<Input<'a>, char> {
     // `take_while_m_n` parses between `m` and `n` bytes (inclusive) that match
     // a predicate. `parse_hex` here parses between 1 and 6 hexadecimal numerals.
     let parse_hex = take_while_m_n(1, 6, |c: char| c.is_ascii_hexdigit());
@@ -46,8 +45,7 @@ fn parse_unicode<'a>(input: Input<'a>) -> IResult<Input<'a>, char>
 }
 
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-fn parse_escaped_char<'a>(input: Input<'a>) -> IResult<Input<'a>, char>
-{
+fn parse_escaped_char<'a>(input: Input<'a>) -> IResult<Input<'a>, char> {
     preceded(
         single_char('\\'),
         // `alt` tries each parser in sequence, returning the result of
@@ -72,16 +70,12 @@ fn parse_escaped_char<'a>(input: Input<'a>) -> IResult<Input<'a>, char>
 
 /// Parse a backslash, followed by any amount of whitespace. This is used later
 /// to discard any escaped whitespace.
-fn parse_escaped_whitespace<'a>(
-    input: Input<'a>,
-) -> IResult<Input<'a>, Input<'a>> {
+fn parse_escaped_whitespace<'a>(input: Input<'a>) -> IResult<Input<'a>, Input<'a>> {
     preceded(single_char('\\'), multispace1)(input)
 }
 
 /// Parse a non-empty block of text that doesn't include \ or "
-fn parse_literal<'a>(
-    input: Input<'a>,
-) -> IResult<Input<'a>, Input<'a>> {
+fn parse_literal<'a>(input: Input<'a>) -> IResult<Input<'a>, Input<'a>> {
     // `is_not` parses a string of 0 or more characters that aren't one of the
     // given characters.
     let not_quote_slash = is_not("\"\\");
@@ -105,8 +99,7 @@ enum StringFragment<'a> {
 
 /// Combine parse_literal, parse_escaped_whitespace, and parse_escaped_char
 /// into a StringFragment.
-fn parse_fragment<'a>(input: Input<'a>) -> IResult<Input<'a>, StringFragment<'a>>
-{
+fn parse_fragment<'a>(input: Input<'a>) -> IResult<Input<'a>, StringFragment<'a>> {
     alt((
         // The `map` combinator runs a parser, then applies a function to the output
         // of that parser.
@@ -142,5 +135,8 @@ pub fn parse_string(input: Input) -> IResult<Input, String> {
     // " character, the closing delimiter " would never match. When using
     // `delimited` with a looping parser (like fold_many0), be sure that the
     // loop won't accidentally match your closing delimiter!
-    delimited(single_char('"'), build_string, single_char('"'))(input)
+    context(
+        "string",
+        delimited(single_char('"'), build_string, single_char('"')),
+    )(input)
 }
