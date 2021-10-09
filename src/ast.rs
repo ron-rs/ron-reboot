@@ -4,6 +4,7 @@ use derivative::Derivative;
 use crate::error::PhantomError;
 use crate::parser::Input;
 
+/// IMPORTANT: Equality operators do NOT compare the start & end spans!
 #[derive(Clone, Debug, Derivative, Eq)]
 #[derivative(PartialEq)]
 pub struct Spanned<'a, T>
