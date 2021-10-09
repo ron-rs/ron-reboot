@@ -32,6 +32,26 @@ where
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Attribute<'a> {
+    Enable(Spanned<'a, Vec<Spanned<'a, Extension>>>),
+}
+
+impl<'a> Attribute<'a> {
+    #[cfg(test)]
+    pub fn enables_test(extensions: Vec<Extension>) -> Self {
+        Attribute::Enable(Spanned::new_test(
+            extensions.into_iter().map(Spanned::new_test).collect(),
+        ))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Extension {
+    UnwrapNewtypes,
+    ImplicitSome,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ident<'a>(pub &'a str);
 
 impl<'a> Ident<'a> {

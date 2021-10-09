@@ -1,14 +1,13 @@
 use crate::ast::{
-    Decimal, Expr, Ident, Integer, KeyValue, List, Map, Sign, SignedInteger, Spanned, Struct,
-    UnsignedInteger,
+    Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Sign, SignedInteger,
+    Spanned, Struct, UnsignedInteger,
 };
-use crate::parser::util::one_char;
+use crate::parser::util::{comma_list0, comma_list1, one_char};
 use nom::branch::alt;
 use nom::character::complete::{alphanumeric1, digit1, multispace0};
 use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
-use nom::multi::separated_list1;
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
+use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::Parser;
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::error::ErrorTree;
@@ -17,6 +16,7 @@ use nom_supreme::ParserExt;
 use std::str::FromStr;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
+pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 pub type IResult<'a, I, O> = nom::IResult<I, O, ErrorTree<Input<'a>>>;
 
 mod string;
@@ -137,10 +137,6 @@ fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
-fn struct_inner(input: Input) -> IResult<Input, Vec<Spanned<KeyValue<Ident>>>> {
-    separated_list1(tag(","), spanned(ident_val_pair))(input)
-}
-
 fn block<'a, F: 'a, O>(
     start_tag: char,
     inner: F,
@@ -154,7 +150,7 @@ where
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
     let ident_struct = opt(spanned(ident));
-    let untagged_struct = spanned(block('(', terminated(struct_inner, opt(ws(tag(",")))), ')'));
+    let untagged_struct = spanned(block('(', comma_list0(ident_val_pair), ')'));
     // Need to create temp var for borrow checker
     let x = map(
         pair(ident_struct, untagged_struct).context("struct"),
@@ -169,33 +165,31 @@ fn key_val_pair(input: Input) -> IResult<Input, KeyValue<Expr>> {
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
-fn map_inner(input: Input) -> IResult<Input, Vec<Spanned<KeyValue<Expr>>>> {
-    separated_list1(tag(","), spanned(key_val_pair))(input)
-}
-
 pub fn rmap(input: Input) -> IResult<Input, Map> {
     map(
-        spanned(block('{', terminated(map_inner, opt(ws(tag(",")))), '}')).context("map"),
+        spanned(block('{', comma_list0(key_val_pair), '}')).context("map"),
         |fields| Map { entries: fields },
     )(input)
 }
 
-pub fn list_inner(input: Input) -> IResult<Input, List> {
-    map(separated_list1(tag(","), spanned(expr)), |elements| List {
-        elements,
-    })(input)
-}
-
 pub fn list(input: Input) -> IResult<Input, List> {
-    block('[', terminated(list_inner, opt(ws(tag(",")))), ']')
-        .context("list")
-        .parse(input)
+    block(
+        '[',
+        map(comma_list0(expr), |elements| List { elements }),
+        ']',
+    )
+    .context("list")
+    .parse(input)
 }
 
 pub fn tuple(input: Input) -> IResult<Input, List> {
-    block('(', terminated(list_inner, opt(ws(tag(",")))), ')')
-        .context("tuple")
-        .parse(input)
+    block(
+        '(',
+        map(comma_list0(expr), |elements| List { elements }),
+        ')',
+    )
+    .context("tuple")
+    .parse(input)
 }
 
 pub fn bool(input: Input) -> IResult<Input, bool> {
@@ -203,6 +197,31 @@ pub fn bool(input: Input) -> IResult<Input, bool> {
         "bool",
         alt((tag("true").value(true), tag("false").value(false))),
     )(input)
+}
+
+pub fn extension_name(input: Input) -> IResult<Input, Extension> {
+    alt((
+        tag("unwrap_newtypes").value(Extension::UnwrapNewtypes),
+        tag("implicit_some").value(Extension::ImplicitSome),
+    ))(input)
+}
+
+pub fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
+    let start = tag("enable").precedes(tag("("));
+    let end = tag(")");
+
+    delimited(
+        start,
+        spanned(comma_list1(extension_name)).map(Attribute::Enable),
+        end,
+    )(input)
+}
+
+pub fn attribute(input: Input) -> IResult<Input, Attribute> {
+    let start = tag("#").precedes(tag("!")).precedes(tag("["));
+    let end = tag("]");
+
+    delimited(start, attribute_enable, end)(input)
 }
 
 pub fn expr(input: Input) -> IResult<Input, Expr> {
