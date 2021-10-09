@@ -1,5 +1,6 @@
 use crate::ast::{
-    Decimal, Expr, Ident, Integer, KeyValue, Sign, SignedInteger, Spanned, Struct, UnsignedInteger,
+    Decimal, Expr, Ident, Integer, KeyValue, Map, Sign, SignedInteger, Spanned, Struct,
+    UnsignedInteger,
 };
 use crate::parser::util::one_char;
 use nom::branch::alt;
@@ -152,7 +153,7 @@ where
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
     let ident_struct = opt(spanned(ident));
-    let untagged_struct = spanned(block('(', terminated(struct_inner, opt(tag(","))), ')'));
+    let untagged_struct = spanned(block('(', terminated(struct_inner, opt(ws(tag(",")))), ')'));
     // Need to create temp var for borrow checker
     let x = map(
         pair(ident_struct, untagged_struct).context("struct"),
@@ -160,6 +161,22 @@ pub fn r#struct(input: Input) -> IResult<Input, Struct> {
     )(input);
 
     x
+}
+
+fn key_val_pair(input: Input) -> IResult<Input, KeyValue<Expr>> {
+    let pair = separated_pair(spanned(expr), cut(one_char(':')), spanned(expr));
+    map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
+}
+
+fn map_inner(input: Input) -> IResult<Input, Vec<Spanned<KeyValue<Expr>>>> {
+    separated_list1(tag(","), spanned(key_val_pair))(input)
+}
+
+pub fn rmap(input: Input) -> IResult<Input, Map> {
+    map(
+        spanned(block('{', terminated(map_inner, opt(ws(tag(",")))), '}')).context("map"),
+        |fields| Map { fields },
+    )(input)
 }
 
 pub fn bool(input: Input) -> IResult<Input, bool> {
@@ -174,7 +191,8 @@ pub fn expr(input: Input) -> IResult<Input, Expr> {
         "expression",
         alt((
             map(bool, Expr::Bool),
-            map(r#struct, Expr::from_struct),
+            map(rmap, Expr::Map),
+            map(r#struct, Expr::Struct),
             map(integer, Expr::Integer),
             map(decimal, Expr::Decimal),
             map(string, Expr::String),
@@ -184,7 +202,6 @@ pub fn expr(input: Input) -> IResult<Input, Expr> {
 
 #[cfg(test)]
 mod tests {
-    //use crate::ast::{Expr, Ident, Integer, Sign, Struct};
     use super::*;
 
     macro_rules! eval {
@@ -217,10 +234,7 @@ mod tests {
     #[test]
     fn exprs_struct() {
         let input = "Pos(x:-3,y:4)";
-        assert_eq!(
-            Expr::from_struct(eval!(r#struct, input)),
-            eval!(expr, input)
-        );
+        assert_eq!(Expr::Struct(eval!(r#struct, input)), eval!(expr, input));
     }
 
     #[test]
@@ -239,6 +253,38 @@ mod tests {
         for input in ["-4123", "111", "+821"] {
             assert_eq!(eval!(integer, input).to_expr(), eval!(expr, input));
         }
+    }
+
+    #[test]
+    fn maps() {
+        let int_n3: Integer = Integer::new_test(Some(Sign::Negative), 3);
+        let int_4: Integer = Integer::new_test(None, 4);
+        let expr_int_n3: Expr = int_n3.to_expr();
+        let expr_int_4: Expr = int_4.to_expr();
+
+        let basic_struct =
+            Struct::new_test(Some("Pos"), vec![("x", expr_int_n3), ("y", expr_int_4)]);
+
+        let basic_map = Map::new_test(vec![
+            (
+                Expr::String("my map key :)".to_owned()),
+                Expr::Struct(basic_struct.clone()),
+            ),
+            (Expr::Struct(basic_struct), Expr::Bool(false)),
+        ]);
+
+        assert_eq!(
+            eval!(
+                rmap,
+                r#"
+{
+    "my map key :)": Pos(x: -3, y: 4),
+    Pos(x: -3, y: 4): false,
+}
+"#
+            ),
+            basic_map
+        );
     }
 
     #[test]
