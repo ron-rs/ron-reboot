@@ -1,12 +1,13 @@
 use crate::ast::{
-    Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Sign, SignedInteger,
-    Spanned, Struct, UnsignedInteger,
+    Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
+    SignedInteger, Spanned, Struct, UnsignedInteger,
 };
 use crate::parser::util::{comma_list0, comma_list1, one_char};
 use nom::branch::alt;
 use nom::character::complete::{alphanumeric1, digit1, multispace0};
 use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
+use nom::multi::many_till;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::Parser;
 use nom_locate::{position, LocatedSpan};
@@ -199,15 +200,15 @@ pub fn bool(input: Input) -> IResult<Input, bool> {
     )(input)
 }
 
-pub fn extension_name(input: Input) -> IResult<Input, Extension> {
+fn extension_name(input: Input) -> IResult<Input, Extension> {
     alt((
         tag("unwrap_newtypes").value(Extension::UnwrapNewtypes),
         tag("implicit_some").value(Extension::ImplicitSome),
     ))(input)
 }
 
-pub fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
-    let start = tag("enable").precedes(tag("("));
+fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
+    let start = tag("enable").precedes(ws(tag("(")));
     let end = tag(")");
 
     delimited(
@@ -218,10 +219,12 @@ pub fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
 }
 
 pub fn attribute(input: Input) -> IResult<Input, Attribute> {
-    let start = tag("#").precedes(tag("!")).precedes(tag("["));
+    let start = tag("#").precedes(ws(tag("!"))).precedes(ws(tag("[")));
     let end = tag("]");
 
-    delimited(start, attribute_enable, end)(input)
+    delimited(start, ws(attribute_enable), end)
+        .context("attribute")
+        .parse(input)
 }
 
 pub fn expr(input: Input) -> IResult<Input, Expr> {
@@ -238,6 +241,20 @@ pub fn expr(input: Input) -> IResult<Input, Expr> {
             map(string, Expr::String),
         )),
     )(input)
+}
+
+pub fn ron(input: &str) -> Result<Ron, InputParseError> {
+    let input = Input::new(input);
+
+    match many_till(spanned(attribute), spanned(expr).context("expression root"))
+        .all_consuming()
+        .cut()
+        .parse(input)
+    {
+        Ok((_, (attributes, expr))) => Ok(Ron { attributes, expr }),
+        Err(nom::Err::Failure(e)) => Err(e),
+        _ => unreachable!(),
+    }
 }
 
 #[cfg(test)]
@@ -293,6 +310,45 @@ mod tests {
         for input in ["-4123", "111", "+821"] {
             assert_eq!(eval!(integer, input).to_expr(), eval!(expr, input));
         }
+    }
+
+    #[test]
+    fn attributes() {
+        assert_eq!(
+            eval!(attribute, "#![enable(implicit_some)]"),
+            Attribute::enables_test(vec![Extension::ImplicitSome])
+        );
+        assert_eq!(
+            eval!(attribute, "# ! [  enable (  implicit_some   ) ]  "),
+            Attribute::enables_test(vec![Extension::ImplicitSome])
+        );
+
+        assert_eq!(
+            eval!(
+                attribute,
+                "# ! [  enable (  implicit_some  , unwrap_newtypes   ) ]  "
+            ),
+            Attribute::enables_test(vec![Extension::ImplicitSome, Extension::UnwrapNewtypes])
+        );
+    }
+
+    #[test]
+    fn lists() {
+        assert_eq!(
+            eval!(list, "[1, 2]"),
+            List::new_test(vec![
+                UnsignedInteger::new(1).to_expr(),
+                UnsignedInteger::new(2).to_expr()
+            ])
+        );
+        assert_eq!(
+            eval!(list, "[ 1, 2, ]"),
+            List::new_test(vec![
+                UnsignedInteger::new(1).to_expr(),
+                UnsignedInteger::new(2).to_expr()
+            ])
+        );
+        assert_eq!(eval!(list, "[  ]"), List::new_test(vec![]));
     }
 
     #[test]

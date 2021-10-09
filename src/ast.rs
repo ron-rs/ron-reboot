@@ -32,6 +32,12 @@ where
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Ron<'a> {
+    pub attributes: Vec<Spanned<'a, Attribute<'a>>>,
+    pub expr: Spanned<'a, Expr<'a>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Attribute<'a> {
     Enable(Spanned<'a, Vec<Spanned<'a, Extension>>>),
 }

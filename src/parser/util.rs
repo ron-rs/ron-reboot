@@ -1,7 +1,8 @@
 use crate::ast::Spanned;
 use crate::parser::{spanned, IResult, Input};
+use nom::branch::alt;
 use nom::character::complete::multispace0;
-use nom::combinator::{map, opt};
+use nom::combinator::opt;
 use nom::multi::separated_list1;
 use nom::sequence::terminated;
 use nom::{AsChar, InputIter, Slice};
@@ -22,16 +23,13 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<Input, char> {
     }
 }
 
-pub fn comma_list0<'a, F: 'a, O: 'a>(
+pub fn comma_list0<'a, F: 'a, O: Clone + 'a>(
     f: F,
 ) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Vec<Spanned<'a, O>>>
 where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
-    map(opt(comma_list1(f)), |opt| match opt {
-        Some(x) => x,
-        None => vec![],
-    })
+    alt((comma_list1(f), multispace0.value(vec![])))
 }
 
 pub fn comma_list1<'a, F: 'a, O: 'a>(
