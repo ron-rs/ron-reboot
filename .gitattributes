@@ -1,6 +1,6 @@
-[attr]saneWs text whitespace=tab-in-indent,space-before-tab,blank-at-eol,-blank-at-eof,tabwidth=4
+[attr]saneWs text eol=native whitespace=tab-in-indent,space-before-tab,blank-at-eol,-blank-at-eof,tabwidth=4
 
-* text=auto
+* text=auto eol=native
 *.rs saneWs
 *.toml saneWs
 
