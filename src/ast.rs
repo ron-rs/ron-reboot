@@ -11,10 +11,10 @@ pub struct Spanned<'a, T>
 where
     T: 'a,
 {
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub start: Input<'a>,
     pub value: T,
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub end: Input<'a>,
 }
 
@@ -75,23 +75,52 @@ impl UnsignedInteger {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Integer<'a> {
-    pub sign: Option<Spanned<'a, Sign>>,
-    pub number: Spanned<'a, UnsignedInteger>,
+pub struct Integer {
+    pub sign: Option<Sign>,
+    pub number: UnsignedInteger,
 }
 
-impl Integer<'static> {
+impl Integer {
     #[cfg(test)]
     pub fn new_test(sign: Option<Sign>, number: u64) -> Self {
         Integer {
-            sign: sign.map(Spanned::new_test),
-            number: Spanned::new_test(UnsignedInteger::new_test(number)),
+            sign,
+            number: UnsignedInteger::new_test(number),
         }
     }
 
     #[cfg(test)]
     pub fn to_expr(self) -> Expr<'static> {
         Expr::Integer(self)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Decimal {
+    pub sign: Option<Sign>,
+    pub whole: Option<u64>,
+    pub fractional: u64,
+    pub exponent: Option<Integer>,
+}
+
+impl Decimal {
+    pub fn new(
+        sign: Option<Sign>,
+        whole: Option<u64>,
+        fractional: u64,
+        exponent: Option<Integer>,
+    ) -> Self {
+        Decimal {
+            sign,
+            whole,
+            fractional,
+            exponent,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn to_expr(self) -> Expr<'static> {
+        Expr::Decimal(self)
     }
 }
 
@@ -145,7 +174,9 @@ impl<'a> Struct<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr<'a> {
     Struct(Box<Struct<'a>>),
-    Integer(Integer<'a>),
+    Integer(Integer),
+    String(String),
+    Decimal(Decimal),
 }
 
 impl<'a> Expr<'a> {
