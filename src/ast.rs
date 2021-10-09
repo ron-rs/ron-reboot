@@ -63,29 +63,46 @@ pub struct UnsignedInteger {
 }
 
 impl UnsignedInteger {
-    #[cfg(test)]
-    pub const fn new_test(number: u64) -> Self {
+    pub const fn new(number: u64) -> Self {
         UnsignedInteger { number }
     }
 
     #[cfg(test)]
     pub fn to_expr(self) -> Expr<'static> {
-        Expr::Integer(Integer::new_test(None, self.number))
+        Expr::Integer(Integer::Unsigned(self))
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Integer {
-    pub sign: Option<Sign>,
-    pub number: UnsignedInteger,
+pub struct SignedInteger {
+    pub sign: Sign,
+    pub number: u64,
+}
+
+impl SignedInteger {
+    #[cfg(test)]
+    pub fn new_test(sign: Sign, number: u64) -> Self {
+        SignedInteger { sign, number }
+    }
+
+    #[cfg(test)]
+    pub fn to_expr(self) -> Expr<'static> {
+        Expr::Integer(Integer::Signed(self))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Integer {
+    Signed(SignedInteger),
+    Unsigned(UnsignedInteger),
 }
 
 impl Integer {
     #[cfg(test)]
     pub fn new_test(sign: Option<Sign>, number: u64) -> Self {
-        Integer {
-            sign,
-            number: UnsignedInteger::new_test(number),
+        match sign {
+            None => Integer::Unsigned(UnsignedInteger::new(number)),
+            Some(sign) => Integer::Signed(SignedInteger::new_test(sign, number)),
         }
     }
 
@@ -100,7 +117,7 @@ pub struct Decimal {
     pub sign: Option<Sign>,
     pub whole: Option<u64>,
     pub fractional: u64,
-    pub exponent: Option<Integer>,
+    pub exponent: Option<(Option<Sign>, u16)>
 }
 
 impl Decimal {
@@ -108,7 +125,7 @@ impl Decimal {
         sign: Option<Sign>,
         whole: Option<u64>,
         fractional: u64,
-        exponent: Option<Integer>,
+        exponent: Option<(Option<Sign>, u16)>,
     ) -> Self {
         Decimal {
             sign,

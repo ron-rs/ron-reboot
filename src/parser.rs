@@ -1,4 +1,6 @@
-use crate::ast::{Decimal, Expr, Ident, Integer, KeyValue, Sign, Spanned, Struct, UnsignedInteger};
+use crate::ast::{
+    Decimal, Expr, Ident, Integer, KeyValue, Sign, SignedInteger, Spanned, Struct, UnsignedInteger,
+};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alphanumeric1, char as single_char, digit1, multispace0, one_of};
@@ -57,10 +59,10 @@ pub fn unsigned(input: Input) -> IResult<Input, UnsignedInteger> {
     map(decimal_unsigned, |number| UnsignedInteger { number })(input)
 }
 
-pub fn integer(input: Input) -> IResult<Input, Integer> {
-    let (input, sign) = opt(sign)(input)?;
+pub fn signed_integer(input: Input) -> IResult<Input, SignedInteger> {
+    let (input, sign) = sign(input)?;
     // Need to create temp var for borrow checker
-    let x = map(unsigned, |number| Integer {
+    let x = map(decimal_unsigned, |number| SignedInteger {
         sign: sign.clone(),
         number,
     })(input);
@@ -68,8 +70,18 @@ pub fn integer(input: Input) -> IResult<Input, Integer> {
     x
 }
 
-fn decimal_exp(input: Input) -> IResult<Input, Option<Integer>> {
-    opt(preceded(alt((single_char('e'), single_char('E'))), integer))(input)
+pub fn integer(input: Input) -> IResult<Input, Integer> {
+    alt((
+        map(unsigned, Integer::Unsigned),
+        map(signed_integer, Integer::Signed),
+    ))(input)
+}
+
+fn decimal_exp(input: Input) -> IResult<Input, Option<(Option<Sign>, u16)>> {
+    opt(preceded(
+        alt((single_char('e'), single_char('E'))),
+        pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
+    ))(input)
 }
 
 /// e.g.
@@ -81,7 +93,11 @@ fn decimal_std(input: Input) -> IResult<Input, Decimal> {
     let (input, sign) = opt(sign)(input)?;
     // Need to create temp var for borrow checker
     let x = map(
-        separated_pair(decimal_unsigned, single_char('.'), pair(decimal_unsigned, decimal_exp)),
+        separated_pair(
+            decimal_unsigned,
+            single_char('.'),
+            pair(decimal_unsigned, decimal_exp),
+        ),
         |(whole, (fractional, exp))| Decimal::new(sign.clone(), Some(whole), fractional, exp),
     )(input);
 
@@ -99,7 +115,7 @@ fn decimal_frac(input: Input) -> IResult<Input, Decimal> {
     x
 }
 
-fn decimal(input: Input)  -> IResult<Input, Decimal> {
+fn decimal(input: Input) -> IResult<Input, Decimal> {
     alt((decimal_std, decimal_frac))(input)
 }
 
@@ -219,7 +235,10 @@ mod tests {
             eval!(integer, "-1"),
             Integer::new_test(Some(Sign::Negative), 1)
         );
-        assert_eq!(eval!(integer, "123"), Integer::new_test(None, 123));
+        assert_eq!(
+            eval!(integer, "123"),
+            Integer::new_test(None, 123)
+        );
         assert_eq!(
             eval!(integer, "+123"),
             Integer::new_test(Some(Sign::Positive), 123)
@@ -238,11 +257,16 @@ mod tests {
         );
         assert_eq!(
             eval!(decimal, "+1.23e+2"),
-            Decimal::new(Some(Sign::Positive), Some(1), 23, Some(Integer::new_test(Some(Sign::Positive), 2)))
+            Decimal::new(
+                Some(Sign::Positive),
+                Some(1),
+                23,
+                Some((Some(Sign::Positive), 2))
+            )
         );
         assert_eq!(
             eval!(decimal, ".123e3"),
-            Decimal::new(None, None, 123, Some(Integer::new_test(None, 3)))
+            Decimal::new(None, None, 123, Some((None, 3)))
         );
     }
 
