@@ -1,15 +1,19 @@
 use anyhow::anyhow;
+use derivative::Derivative;
 
 use crate::error::PhantomError;
 use crate::parser::Input;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Derivative, Eq)]
+#[derivative(PartialEq)]
 pub struct Spanned<'a, T>
 where
     T: 'a,
 {
+    #[derivative(PartialEq="ignore")]
     pub start: Input<'a>,
     pub value: T,
+    #[derivative(PartialEq="ignore")]
     pub end: Input<'a>,
 }
 
@@ -59,13 +63,13 @@ pub struct UnsignedInteger {
 
 impl UnsignedInteger {
     #[cfg(test)]
-    pub const fn new_test(sign: Option<Sign>, number: u64) -> Self {
+    pub const fn new_test(number: u64) -> Self {
         UnsignedInteger { number }
     }
 
     #[cfg(test)]
-    pub const fn to_expr(self) -> Expr<'static> {
-        Expr::Integer(Integer::new_test(None, self))
+    pub fn to_expr(self) -> Expr<'static> {
+        Expr::Integer(Integer::new_test(None, self.number))
     }
 }
 
@@ -75,12 +79,12 @@ pub struct Integer<'a> {
     pub number: Spanned<'a, UnsignedInteger>,
 }
 
-impl Integer<'_> {
+impl Integer<'static> {
     #[cfg(test)]
-    pub fn new_test(sign: Option<Sign>, number: UnsignedInteger) -> Self {
+    pub fn new_test(sign: Option<Sign>, number: u64) -> Self {
         Integer {
             sign: sign.map(Spanned::new_test),
-            number: Spanned::new_test(number),
+            number: Spanned::new_test(UnsignedInteger::new_test(number)),
         }
     }
 
@@ -94,6 +98,16 @@ impl Integer<'_> {
 pub struct KeyValue<'a, K: 'a> {
     pub key: Spanned<'a, K>,
     pub value: Spanned<'a, Expr<'a>>,
+}
+
+impl<'a, K: 'a> KeyValue<'a, K> {
+    #[cfg(test)]
+    pub fn new_test(key: K, value: Expr<'a>) -> Self {
+        KeyValue {
+            key: Spanned::new_test(key),
+            value: Spanned::new_test(value),
+        }
+    }
 }
 
 pub type SpannedKvs<'a, K> = Spanned<'a, Vec<Spanned<'a, KeyValue<'a, K>>>>;
@@ -110,6 +124,20 @@ impl<'a> Struct<'a> {
         fields: Spanned<'a, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>>,
     ) -> Result<Self, PhantomError> {
         Ok(Struct { ident, fields })
+    }
+
+    #[cfg(test)]
+    pub fn new_test(ident: Option<&'a str>, fields: Vec<(&'a str, Expr<'a>)>) -> Self {
+        Struct::new(
+            ident.map(Ident).map(Spanned::new_test),
+            Spanned::new_test(
+                fields
+                    .into_iter()
+                    .map(|field| Spanned::new_test(KeyValue::new_test(Ident(field.0), field.1)))
+                    .collect(),
+            ),
+        )
+        .unwrap()
     }
 }
 

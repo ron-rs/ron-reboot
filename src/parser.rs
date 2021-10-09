@@ -17,14 +17,15 @@ fn spanned<'a, F: 'a, O, E: ParseError<Input<'a>>>(
 ) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Spanned<O>, E>
 where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+    O: 'a
 {
-    move |input: Input<'a>| {
+    ws(move |input: Input<'a>| {
         let (input, start) = position(input)?;
         let (input, value) = inner(input)?;
         let (input, end) = position(input)?;
 
         Ok((input, Spanned { start, value, end }))
-    }
+    })
 }
 
 fn ws<'a, F: 'a, O, E: ParseError<Input<'a>>>(
@@ -62,7 +63,7 @@ pub fn integer(input: Input) -> IResult<Input, Integer> {
 }
 
 fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
-    let pair = separated_pair(ws(spanned(ident)), tag(":"), ws(spanned(expr)));
+    let pair = separated_pair(spanned(ident), tag(":"), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
@@ -106,12 +107,6 @@ mod tests {
     use crate::ast::{Expr, Ident, Integer, Sign, Struct};
     use crate::parser::{expr, ident, integer, r#struct, sign, Input};
 
-    const INT_N3: Integer = Integer::new_test(Some(Sign::Negative), 3);
-    const INT_4: Integer = Integer::new_test(None, 4);
-
-    const EXPR_INT_N3: Expr = INT_N3.to_expr();
-    const EXPR_INT_4: Expr = INT_4.to_expr();
-
     macro_rules! eval {
         ($parser:ident,$input:expr) => {
             $parser(Input::new($input)).unwrap().1
@@ -139,10 +134,13 @@ mod tests {
 
     #[test]
     fn structs() {
-        let basic_struct = Struct {
-            ident: Some(Ident("Pos")),
-            fields: vec![(Ident("x"), EXPR_INT_N3), (Ident("y"), EXPR_INT_4)],
-        };
+        let int_n3: Integer = Integer::new_test(Some(Sign::Negative), 3);
+        let int_4: Integer = Integer::new_test(None, 4);
+        let expr_int_n3: Expr = int_n3.to_expr();
+        let expr_int_4: Expr = int_4.to_expr();
+
+        let basic_struct =
+            Struct::new_test(Some("Pos"), vec![("x", expr_int_n3), ("y", expr_int_4)]);
 
         assert_eq!(eval!(r#struct, "Pos(x:-3,y:4)"), basic_struct);
         assert_eq!(
