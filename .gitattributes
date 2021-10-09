@@ -1,0 +1,8 @@
+[attr]saneWs text whitespace=tab-in-indent,space-before-tab,blank-at-eol,-blank-at-eof,tabwidth=4
+
+* text=auto
+*.rs saneWs
+*.toml saneWs
+
+.gitattributes saneWs
+.gitignore saneWs
