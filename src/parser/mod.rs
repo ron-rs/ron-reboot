@@ -1,5 +1,5 @@
 use crate::ast::{
-    Decimal, Expr, Ident, Integer, KeyValue, Map, Sign, SignedInteger, Spanned, Struct,
+    Decimal, Expr, Ident, Integer, KeyValue, List, Map, Sign, SignedInteger, Spanned, Struct,
     UnsignedInteger,
 };
 use crate::parser::util::one_char;
@@ -9,6 +9,7 @@ use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
 use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
+use nom::Parser;
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::error::ErrorTree;
 use nom_supreme::tag::complete::tag;
@@ -175,8 +176,26 @@ fn map_inner(input: Input) -> IResult<Input, Vec<Spanned<KeyValue<Expr>>>> {
 pub fn rmap(input: Input) -> IResult<Input, Map> {
     map(
         spanned(block('{', terminated(map_inner, opt(ws(tag(",")))), '}')).context("map"),
-        |fields| Map { fields },
+        |fields| Map { entries: fields },
     )(input)
+}
+
+pub fn list_inner(input: Input) -> IResult<Input, List> {
+    map(separated_list1(tag(","), spanned(expr)), |elements| List {
+        elements,
+    })(input)
+}
+
+pub fn list(input: Input) -> IResult<Input, List> {
+    block('[', terminated(list_inner, opt(ws(tag(",")))), ']')
+        .context("list")
+        .parse(input)
+}
+
+pub fn tuple(input: Input) -> IResult<Input, List> {
+    block('(', terminated(list_inner, opt(ws(tag(",")))), ')')
+        .context("tuple")
+        .parse(input)
 }
 
 pub fn bool(input: Input) -> IResult<Input, bool> {
@@ -191,6 +210,8 @@ pub fn expr(input: Input) -> IResult<Input, Expr> {
         "expression",
         alt((
             map(bool, Expr::Bool),
+            map(tuple, Expr::Tuple),
+            map(list, Expr::List),
             map(rmap, Expr::Map),
             map(r#struct, Expr::Struct),
             map(integer, Expr::Integer),

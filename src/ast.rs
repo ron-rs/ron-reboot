@@ -192,14 +192,14 @@ impl<'a> Struct<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Map<'a> {
-    pub fields: SpannedKvs<'a, Expr<'a>>,
+    pub entries: SpannedKvs<'a, Expr<'a>>,
 }
 
 impl<'a> Map<'a> {
     #[cfg(test)]
     pub fn new_test(kvs: Vec<(Expr<'a>, Expr<'a>)>) -> Self {
         Map {
-            fields: Spanned::new_test(
+            entries: Spanned::new_test(
                 kvs.into_iter()
                     .map(|(k, v)| KeyValue {
                         key: Spanned::new_test(k),
@@ -213,8 +213,24 @@ impl<'a> Map<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct List<'a> {
+    pub elements: Vec<Spanned<'a, Expr<'a>>>,
+}
+
+impl<'a> List<'a> {
+    #[cfg(test)]
+    pub fn new_test(kvs: Vec<Expr<'a>>) -> Self {
+        List {
+            elements: kvs.into_iter().map(Spanned::new_test).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr<'a> {
     Bool(bool),
+    Tuple(List<'a>),
+    List(List<'a>),
     Map(Map<'a>),
     Struct(Struct<'a>),
     Integer(Integer),
