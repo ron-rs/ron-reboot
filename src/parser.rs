@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Ident, Integer, Sign, Struct};
+use crate::ast::{Expr, Ident, Integer, KeyValue, Sign, Spanned, Struct, UnsignedInteger};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alphanumeric1, digit1, multispace0, one_of};
@@ -7,13 +7,26 @@ use nom::error::ParseError;
 use nom::multi::separated_list1;
 use nom::sequence::{delimited, preceded, separated_pair, terminated};
 use nom::IResult;
-use nom_locate::LocatedSpan;
+use nom_locate::{position, LocatedSpan};
 use std::str::FromStr;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 
-/// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
-/// trailing whitespace, returning the output of `inner`.
+fn spanned<'a, F: 'a, O, E: ParseError<Input<'a>>>(
+    mut inner: F,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Spanned<O>, E>
+where
+    F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+{
+    move |input: Input<'a>| {
+        let (input, start) = position(input)?;
+        let (input, value) = inner(input)?;
+        let (input, end) = position(input)?;
+
+        Ok((input, Spanned { start, value, end }))
+    }
+}
+
 fn ws<'a, F: 'a, O, E: ParseError<Input<'a>>>(
     inner: F,
 ) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
@@ -31,42 +44,52 @@ pub fn sign(input: Input) -> IResult<Input, Sign> {
     map_res(one_of("+-"), Sign::from_char)(input)
 }
 
+pub fn unsigned(input: Input) -> IResult<Input, UnsignedInteger> {
+    map_res(digit1, |digits: Input| {
+        u64::from_str(digits.fragment()).map(|number| UnsignedInteger { number })
+    })(input)
+}
+
 pub fn integer(input: Input) -> IResult<Input, Integer> {
-    let (input, sign) = opt(sign)(input)?;
+    let (input, sign) = opt(spanned(sign))(input)?;
     // Need to create temp var for borrow checker
-    let x = map_res(digit1, |digits: Input| {
-        u64::from_str(digits.fragment()).map(|number| Integer {
-            number,
-            sign: sign.clone(),
-        })
+    let x = map(spanned(unsigned), |number| Integer {
+        sign: sign.clone(),
+        number,
     })(input);
 
     x
 }
 
-fn ident_val_pair(input: Input) -> IResult<Input, (Ident, Expr)> {
-    separated_pair(ws(ident), tag(":"), ws(expr))(input)
+fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
+    let pair = separated_pair(ws(spanned(ident)), tag(":"), ws(spanned(expr)));
+    map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
 fn struct_inner<'a>(
     input: Input<'a>,
-    struct_ident: Option<Ident<'a>>,
-) -> IResult<Input<'a>, Struct<'a>> {
-    map_res(separated_list1(tag(","), ident_val_pair), move |fields| {
-        Struct::new(struct_ident.clone(), fields)
-    })(input)
+) -> IResult<Input<'a>, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>> {
+    separated_list1(tag(","), spanned(ident_val_pair))(input)
+}
+
+fn block<'a, F: 'a, O, E: ParseError<Input<'a>>>(
+    start_tag: &'a str,
+    inner: F,
+    end_tag: &'a str,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
+where
+    F: FnMut(Input<'a>) -> IResult<Input<'a>, O, E>,
+{
+    terminated(preceded(tag(start_tag), ws(inner)), tag(end_tag))
 }
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
-    let (input, struct_ident) = opt(ident)(input)?;
+    let (input, struct_ident) = opt(spanned(ident))(input)?;
     // Need to create temp var for borrow checker
-    let x = ws(terminated(
-        preceded(
-            tag("("),
-            ws(move |input| struct_inner(input, struct_ident.clone())),
-        ),
-        tag(")"),
-    ))(input);
+    let x = map(spanned(block("(", struct_inner, ")")), |fields| Struct {
+        fields,
+        ident: struct_ident.clone(),
+    })(input);
 
     x
 }
