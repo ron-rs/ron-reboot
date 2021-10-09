@@ -10,10 +10,11 @@ use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom_locate::{position, LocatedSpan};
 use std::str::FromStr;
+use nom_supreme::error::ErrorTree;
 use crate::parser::util::one_char;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
-pub type IResult<'a, I, O> = nom::IResult<I, O, crate::error::Error>;
+pub type IResult<'a, I, O> = nom::IResult<I, O, ErrorTree<Input<'a>>>;
 
 mod string;
 mod util;
