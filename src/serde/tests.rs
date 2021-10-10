@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind::*, Location};
+use crate::error::{Error, ErrorKind::*};
 use crate::serde::from_str;
 
 #[test]
@@ -27,7 +27,7 @@ fn zero_copy_strs() {
     assert_eq!(from_str::<&str>(r#" "😀😀" "#), Ok("😀😀"));
     assert_eq!(
         from_str::<&str>(r#"  "Escapes are \\ fun but not available here :|" "#),
-        Err(Error { kind: ExpectedStrGotEscapes, start: Some(Location { line: 1, column: 3 }), end: Some(Location { line: 1, column: 49 }) })
+        Err(Error { kind: Custom(r#"invalid type: string "Escapes are \\ fun but not available here :|", expected a borrowed string"#.to_owned()), start: None, end: None })
     );
 }
 

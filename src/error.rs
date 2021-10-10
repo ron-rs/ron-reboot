@@ -75,7 +75,7 @@ impl Display for Error {
                 start, end, self.kind
             ),
             (Some(start), None) => write!(f, "deserialization error at {}: {}", start, self.kind),
-            _ => write!(f, "deserialization error: {}", self.kind),
+            _ => write!(f, "{}", self.kind),
         }
     }
 }

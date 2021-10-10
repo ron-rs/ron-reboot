@@ -1,11 +1,12 @@
 #![allow(unused_variables)]
 
+use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, forward_to_deserialize_any};
+
 use crate::ast::Expr::*;
-use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
-use crate::error::{ron_err, ErrorKind};
+//use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
+//use crate::error::{ron_err, ErrorKind};
 use crate::{ast, parser};
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer};
 
 // By convention, the public API of a Serde deserializer is one or more
 // `from_xyz` methods such as `from_str`, `from_bytes`, or `from_reader`
@@ -37,9 +38,11 @@ impl<'a, 'de> RonDeserializer<'a, 'de> {
         }
     }
 
+    /*
     fn err<V>(&self, kind: ErrorKind) -> Result<V, crate::error::Error> {
         Err(dbg!(ron_err(kind, self.expr.start, self.expr.end)))
     }
+     */
 }
 
 impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
@@ -49,243 +52,47 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        todo!()
-    }
-
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.expr.value {
+        match self.expr.value.take() {
+            Unit => visitor.visit_unit(),
             Bool(b) => visitor.visit_bool(b),
-            _ => self.err(ExpectedBool),
-        }
-    }
-
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.expr.value.take() {
-            Str(s) => visitor.visit_borrowed_str(s),
-            String(s) => self.err(ExpectedStrGotEscapes),
-            _ => self.err(ExpectedString),
-        }
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.expr.value.take() {
-            Str(s) => visitor.visit_str(s),
-            String(s) => visitor.visit_string(s),
-            _ => self.err(ExpectedString),
-        }
-    }
-
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_unit_struct<V>(
-        self,
-        name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_newtype_struct<V>(
-        self,
-        name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.expr.value.take() {
-            // TODO Tuple(_) => {}
-            List(mut list) => visitor.visit_seq(SeqDeserializer {
-                iter: list.elements.iter_mut(),
+            Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                iter: t.elements.iter_mut(),
             }),
-            _ => self.err(ExpectedBool),
+            List(mut l) => visitor.visit_seq(SeqDeserializer {
+                iter: l.elements.iter_mut(),
+            }),
+            Map(_) => todo!(),
+            Struct(mut s) => visitor.visit_map(StructDeserializer {
+                iter: s.fields.value.iter_mut(),
+                value: None
+            }),
+            Integer(_) => todo!(),
+            Str(s) => visitor.visit_borrowed_str(s),
+            String(s) => visitor.visit_string(s),
+            Decimal(_) => todo!(),
         }
-    }
-
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_tuple_struct<V>(
-        self,
-        name: &'static str,
-        len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_struct<V>(
-        self,
-        name: &'static str,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_enum<V>(
-        self,
-        name: &'static str,
-        variants: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        unimplemented!("identifiers are no expr")
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        self.expr.value.take();
+
+        visitor.visit_unit()
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char string str
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum
     }
 }
 
@@ -304,5 +111,66 @@ impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
             Some(x) => seed.deserialize(RonDeserializer { expr: x }).map(Some),
             None => Ok(None),
         }
+    }
+}
+
+struct StructDeserializer<'a, 'de> {
+    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::KeyValue<'de, ast::Ident<'de>>>>,
+    value: Option<&'a mut ast::Spanned<'de, ast::Expr<'de>>>
+}
+
+impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error> where K: DeserializeSeed<'de> {
+        match self.iter.next().map(|s| &mut s.value) {
+            Some(x) => {
+                self.value = Some(&mut x.value);
+
+                seed.deserialize(IdentDeserializer { ident: &mut x.key }).map(Some)
+            },
+            None => Ok(None),
+        }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error> where V: DeserializeSeed<'de> {
+        seed.deserialize(RonDeserializer { expr: &mut self.value.take().expect("called next_value_seed before next_key_seed") })
+    }
+
+    fn next_entry_seed<K, V>(&mut self, kseed: K, vseed: V) -> Result<Option<(K::Value, V::Value)>, Self::Error> where K: DeserializeSeed<'de>, V: DeserializeSeed<'de> {
+        match self.iter.next().map(|s| &mut s.value) {
+            Some(x) => {
+                let key = kseed.deserialize(IdentDeserializer { ident: &mut x.key })?;
+                let value = vseed.deserialize(RonDeserializer { expr: &mut x.value })?;
+
+                Ok(Some((key, value)))
+            },
+            None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.iter.size_hint().0)
+    }
+}
+
+struct IdentDeserializer<'a, 'de> {
+    ident: &'a mut ast::Spanned<'de, ast::Ident<'de>>,
+}
+
+impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.ident.value.0)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
     }
 }

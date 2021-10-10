@@ -147,7 +147,8 @@ fn block<'a, F: 'a, O>(
 where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
-    delimited(one_char(start_tag), inner, cut(one_char(end_tag)))
+    #[allow(unused_parens)]
+    delimited(one_char(start_tag), inner, /*TODO: conditional cut*/(one_char(end_tag)))
 }
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {

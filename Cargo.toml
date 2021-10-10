@@ -12,4 +12,22 @@ derivative = "2.2.0"
 nom = "7.0"
 nom_locate = "4.0"
 nom-supreme = "0.6.0"
-serde = "1.0.130"
+
+serde = { version = "1.0.130", optional = true }
+
+[features]
+default = ["serde1_serde"]
+
+# Serialize derives for ast
+serde1_ast_derives = ["serde/derive"]
+# serde deserializer
+serde1_serde = []
+
+[dev-dependencies]
+ron = "*"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "*"
+
+[[example]]
+name = "roundtrip"
+required-features = ["serde1_ast_derives"]
