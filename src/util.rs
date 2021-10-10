@@ -1,5 +1,4 @@
-use std::fmt;
-use std::fmt::Formatter;
+use std::{fmt, fmt::Formatter};
 
 pub fn write_pretty_list<T>(
     f: &mut Formatter<'_>,

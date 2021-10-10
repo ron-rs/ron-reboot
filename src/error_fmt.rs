@@ -1,7 +1,10 @@
+use std::{
+    error::Error,
+    fmt,
+    fmt::{Debug, Display, Formatter},
+};
+
 use crate::parser::{ErrorTree, Input};
-use std::error::Error;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug)]
 pub struct ErrorTreeFmt(ErrorTree<String>);

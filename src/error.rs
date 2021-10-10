@@ -1,6 +1,9 @@
-use crate::error_fmt::ErrorTreeFmt;
-use crate::parser::{Input, InputParseError};
 use std::fmt::{Display, Formatter};
+
+use crate::{
+    error_fmt::ErrorTreeFmt,
+    parser::{Input, InputParseError},
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Location {

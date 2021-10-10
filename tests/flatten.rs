@@ -1,7 +1,7 @@
+use std::{collections::HashMap, iter::FromIterator};
+
 use ron_nom::serde::from_str;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::iter::FromIterator;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct MyStruct {

@@ -1,5 +1,4 @@
 use ron::{ser::to_string_pretty, Value};
-
 use ron_nom::serde::from_str;
 
 fn main() {

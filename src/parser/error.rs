@@ -6,13 +6,14 @@ use std::{
     fmt::{self, Debug, Display, Formatter, Write},
 };
 
-use crate::util::write_pretty_list;
 use indent_write::fmt::IndentWriter;
 use nom::{
     error::{ContextError, ErrorKind as NomErrorKind, FromExternalError, ParseError},
     InputLength,
 };
 use nom_supreme::tag::TagError;
+
+use crate::util::write_pretty_list;
 
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

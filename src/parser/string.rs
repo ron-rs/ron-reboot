@@ -1,10 +1,12 @@
-use nom::branch::alt;
-use nom::bytes::streaming::{is_not, take_while_m_n};
-use nom::character::streaming::{char as single_char, multispace1};
-use nom::combinator::{map, map_opt, map_res, value, verify};
-use nom::error::context;
-use nom::multi::fold_many0;
-use nom::sequence::{delimited, preceded};
+use nom::{
+    branch::alt,
+    bytes::streaming::{is_not, take_while_m_n},
+    character::streaming::{char as single_char, multispace1},
+    combinator::{map, map_opt, map_res, value, verify},
+    error::context,
+    multi::fold_many0,
+    sequence::{delimited, preceded},
+};
 
 use crate::parser::{IResult, Input};
 

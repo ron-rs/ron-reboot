@@ -1,6 +1,6 @@
-use ron_nom::error_fmt::ErrorTreeFmt;
-use ron_nom::parser::ron;
 use std::io::{stdin, Read};
+
+use ron_nom::{error_fmt::ErrorTreeFmt, parser::ron};
 
 fn main() {
     let mut s = String::new();

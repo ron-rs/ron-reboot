@@ -1,5 +1,7 @@
-use crate::error::{Error, ErrorKind::*};
-use crate::serde::from_str;
+use crate::{
+    error::{Error, ErrorKind::*},
+    serde::from_str,
+};
 
 #[test]
 fn bools() {

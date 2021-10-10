@@ -1,20 +1,28 @@
-use crate::ast::{
-    Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
-    SignedInteger, Spanned, Struct, UnsignedInteger,
+use std::str::FromStr;
+
+use nom::{
+    branch::alt,
+    bytes::complete::take_till,
+    character::complete::{digit1, multispace0},
+    combinator::{cut, map, map_res, opt},
+    error::context,
+    multi::many0,
+    sequence::{delimited, pair, preceded, separated_pair},
+    Parser,
 };
-use crate::parser::char_categories::{is_ident_first_char, is_ident_other_char};
-use crate::parser::util::{comma_list0, comma_list1, one_char, one_of_chars, tag, take_if_c, take_while};
-use nom::branch::alt;
-use nom::bytes::complete::{take_till};
-use nom::character::complete::{digit1, multispace0};
-use nom::combinator::{cut, map, map_res, opt};
-use nom::error::context;
-use nom::multi::many0;
-use nom::sequence::{delimited, pair, preceded, separated_pair};
-use nom::Parser;
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::ParserExt;
-use std::str::FromStr;
+
+use crate::{
+    ast::{
+        Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
+        SignedInteger, Spanned, Struct, UnsignedInteger,
+    },
+    parser::{
+        char_categories::{is_ident_first_char, is_ident_other_char},
+        util::{comma_list0, comma_list1, one_char, one_of_chars, tag, take_if_c, take_while},
+    },
+};
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
@@ -25,8 +33,10 @@ mod error;
 mod string;
 mod util;
 
-pub use self::error::{BaseErrorKind, ErrorTree, Expectation};
-pub use self::string::parse_string as string;
+pub use self::{
+    error::{BaseErrorKind, ErrorTree, Expectation},
+    string::parse_string as string,
+};
 
 pub fn spanned<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Input<'a>) -> IResult<Spanned<O>>
 where
@@ -50,7 +60,10 @@ where
 }
 
 fn ident_first_char(input: Input) -> IResult<Input> {
-    take_if_c(is_ident_first_char, &[Expectation::Alpha, Expectation::Char('_')])(input)
+    take_if_c(
+        is_ident_first_char,
+        &[Expectation::Alpha, Expectation::Char('_')],
+    )(input)
 }
 
 fn ident_inner(input: Input) -> IResult<Input> {
@@ -240,7 +253,9 @@ fn attribute_enable(input: Input) -> IResult<Attribute> {
 }
 
 pub fn attribute(input: Input) -> IResult<Attribute> {
-    let start = one_char('#').precedes(ws(one_char('!'))).precedes(ws(one_char('[')));
+    let start = one_char('#')
+        .precedes(ws(one_char('!')))
+        .precedes(ws(one_char('[')));
     let end = one_char(']');
 
     delimited(start, ws(attribute_enable), end)
@@ -250,32 +265,26 @@ pub fn attribute(input: Input) -> IResult<Attribute> {
 
 fn expr_inner(input: Input) -> IResult<Expr> {
     alt((
-            map(bool, Expr::Bool),
-            map(tuple, Expr::Tuple),
-            map(list, Expr::List),
-            map(rmap, Expr::Map),
-            map(r#struct, Expr::Struct),
-            map(integer, Expr::Integer),
-            map(decimal, Expr::Decimal),
-            map(unescaped_str, Expr::Str),
-            map(string, Expr::String),
-        ))(input)
+        map(bool, Expr::Bool),
+        map(tuple, Expr::Tuple),
+        map(list, Expr::List),
+        map(rmap, Expr::Map),
+        map(r#struct, Expr::Struct),
+        map(integer, Expr::Integer),
+        map(decimal, Expr::Decimal),
+        map(unescaped_str, Expr::Str),
+        map(string, Expr::String),
+    ))(input)
 }
 
 pub fn expr(input: Input) -> IResult<Expr> {
-    context(
-        "expression",
-        expr_inner,
-    )(input)
+    context("expression", expr_inner)(input)
 }
 
 fn ron_inner(input: Input) -> IResult<Ron> {
-    pair(
-        many0(spanned(attribute)),
-        spanned(expr),
-    )
-    .map(|(attributes, expr)| Ron { attributes, expr })
-    .parse(input)
+    pair(many0(spanned(attribute)), spanned(expr))
+        .map(|(attributes, expr)| Ron { attributes, expr })
+        .parse(input)
 }
 
 pub fn ron(input: &str) -> Result<Ron, InputParseError> {

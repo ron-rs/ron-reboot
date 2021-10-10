@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 
-use crate::ast::Spanned;
-use crate::parser::error::{BaseErrorKind, ErrorTree, Expectation};
-use crate::parser::{spanned, IResult, Input};
-
-use nom::branch::alt;
-use nom::character::complete::multispace0;
-use nom::combinator::opt;
-use nom::multi::separated_list1;
-use nom::sequence::terminated;
-use nom::{AsChar, InputIter, InputTake, Parser, Slice};
+use nom::{
+    branch::alt, character::complete::multispace0, combinator::opt, multi::separated_list1,
+    sequence::terminated, AsChar, InputIter, InputTake, Parser, Slice,
+};
 use nom_supreme::ParserExt;
+
+use crate::{
+    ast::Spanned,
+    parser::{
+        error::{BaseErrorKind, ErrorTree, Expectation},
+        spanned, IResult, Input,
+    },
+};
 
 #[inline]
 fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
@@ -20,12 +22,16 @@ fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
     }))
 }
 
-pub fn take_while(condition: impl Fn(char) -> bool + Clone) -> impl Clone + Fn(Input) -> IResult<Input> {
-    move |input: Input| {
-        match input.char_indices().skip_while(|(_ind, c)| condition(*c)).next() {
-            Some((ind, _)) => Ok(input.take_split(ind)),
-            None => Ok(input.take_split(input.len()))
-        }
+pub fn take_while(
+    condition: impl Fn(char) -> bool + Clone,
+) -> impl Clone + Fn(Input) -> IResult<Input> {
+    move |input: Input| match input
+        .char_indices()
+        .skip_while(|(_ind, c)| condition(*c))
+        .next()
+    {
+        Some((ind, _)) => Ok(input.take_split(ind)),
+        None => Ok(input.take_split(input.len())),
     }
 }
 
@@ -42,9 +48,7 @@ pub fn take_if_c(
     condition: impl Fn(char) -> bool,
     expectations: &'static [Expectation],
 ) -> impl Fn(Input) -> IResult<Input> {
-    move |input: Input| match input.iter_elements().next().map(|t| {
-        (t, condition(t))
-    }) {
+    move |input: Input| match input.iter_elements().next().map(|t| (t, condition(t))) {
         Some((c, true)) => Ok((input.slice(c.len()..), input.slice(1..))),
         _ => Err(nom::Err::Error(ErrorTree::Base {
             location: input,
@@ -57,7 +61,11 @@ pub fn take_if_c_char(
     condition: impl Fn(char) -> bool + 'static,
     expectations: &'static [Expectation],
 ) -> impl Fn(Input) -> IResult<char> {
-    move |input | take_if_c(&condition, expectations).map(|input: Input| input.fragment().chars().next().unwrap()).parse(input)
+    move |input| {
+        take_if_c(&condition, expectations)
+            .map(|input: Input| input.fragment().chars().next().unwrap())
+            .parse(input)
+    }
 }
 
 pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
@@ -76,7 +84,7 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
 #[inline]
 pub fn one_of_chars<O: Clone>(
     one_of: &'static str,
-    mapping: &'static [O]
+    mapping: &'static [O],
 ) -> impl Fn(Input) -> IResult<O> {
     move |input: Input| match input.iter_elements().next().map(|t| {
         let b = one_of.chars().position(|c| c == t);
@@ -115,10 +123,40 @@ mod tests {
 
     #[test]
     fn test_take_while() {
-        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("ababcabab")).unwrap().1.len(), 4);
-        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("cababcabab")).unwrap().1.len(), 0);
-        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("")).unwrap().1.len(), 0);
-        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("c")).unwrap().1.len(), 0);
-        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("b")).unwrap().1.len(), 1);
+        assert_eq!(
+            take_while(|c| c == 'a' || c == 'b')(Input::new("ababcabab"))
+                .unwrap()
+                .1
+                .len(),
+            4
+        );
+        assert_eq!(
+            take_while(|c| c == 'a' || c == 'b')(Input::new("cababcabab"))
+                .unwrap()
+                .1
+                .len(),
+            0
+        );
+        assert_eq!(
+            take_while(|c| c == 'a' || c == 'b')(Input::new(""))
+                .unwrap()
+                .1
+                .len(),
+            0
+        );
+        assert_eq!(
+            take_while(|c| c == 'a' || c == 'b')(Input::new("c"))
+                .unwrap()
+                .1
+                .len(),
+            0
+        );
+        assert_eq!(
+            take_while(|c| c == 'a' || c == 'b')(Input::new("b"))
+                .unwrap()
+                .1
+                .len(),
+            1
+        );
     }
 }
