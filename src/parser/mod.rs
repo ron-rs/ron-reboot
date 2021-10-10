@@ -9,11 +9,10 @@ use nom::bytes::complete::{take, take_till, take_while};
 use nom::character::complete::{digit1, multispace0};
 use nom::combinator::{cut, map, map_res, opt, verify};
 use nom::error::context;
-use nom::multi::many_till;
+use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::Parser;
 use nom_locate::{position, LocatedSpan};
-use nom_supreme::error::ErrorTree;
 use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
 use std::str::FromStr;
@@ -23,14 +22,14 @@ pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 pub type IResult<'a, O> = nom::IResult<Input<'a>, O, ErrorTree<Input<'a>>>;
 
 mod char_categories;
+mod error;
 mod string;
 mod util;
 
+pub use self::error::{BaseErrorKind, ErrorTree, Expectation};
 pub use self::string::parse_string as string;
 
-pub fn spanned<'a, F: 'a, O>(
-    mut inner: F,
-) -> impl FnMut(Input<'a>) -> IResult<Spanned<O>>
+pub fn spanned<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Input<'a>) -> IResult<Spanned<O>>
 where
     F: FnMut(Input<'a>) -> IResult<O>,
     O: 'a,
@@ -222,7 +221,9 @@ pub fn bool(input: Input) -> IResult<bool> {
 }
 
 fn inner_str(input: Input) -> IResult<&str> {
-    take_till(|c| c == '"' || c == '\\').map(|x: Input| *x.fragment()).parse(input)
+    take_till(|c| c == '"' || c == '\\')
+        .map(|x: Input| *x.fragment())
+        .parse(input)
 }
 
 pub fn unescaped_str(input: Input) -> IResult<&str> {
@@ -273,15 +274,20 @@ pub fn expr(input: Input) -> IResult<Expr> {
     )(input)
 }
 
+fn ron_inner(input: Input) -> IResult<Ron> {
+    pair(
+        many0(spanned(attribute)),
+        spanned(expr).context("expression root"),
+    )
+    .map(|(attributes, expr)| Ron { attributes, expr })
+    .parse(input)
+}
+
 pub fn ron(input: &str) -> Result<Ron, InputParseError> {
     let input = Input::new(input);
 
-    match many_till(spanned(attribute), spanned(expr).context("expression root"))
-        .all_consuming()
-        .cut()
-        .parse(input)
-    {
-        Ok((_, (attributes, expr))) => Ok(Ron { attributes, expr }),
+    match ron_inner.complete().all_consuming().cut().parse(input) {
+        Ok((_, ron)) => Ok(ron),
         Err(nom::Err::Failure(e)) => Err(e),
         _ => unreachable!(),
     }

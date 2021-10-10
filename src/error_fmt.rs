@@ -1,5 +1,4 @@
-use crate::parser::Input;
-use nom_supreme::error::ErrorTree;
+use crate::parser::{ErrorTree, Input};
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};

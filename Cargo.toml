@@ -8,6 +8,8 @@ edition = "2018"
 [dependencies]
 #anyhow = "1.0.44"
 derivative = "2.2.0"
+# TODO: remove
+indent_write = "*"
 #err-derive = "0.3.0"
 nom = "7.0"
 nom_locate = "4.0"

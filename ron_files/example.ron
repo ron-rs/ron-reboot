@@ -1,7 +1,7 @@
 
 (
     foo: false,
-    bar: "bar",
+    bar: "bar"
 
     extension_baz: true,
 )

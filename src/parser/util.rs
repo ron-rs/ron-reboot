@@ -1,12 +1,13 @@
 use crate::ast::Spanned;
+use crate::parser::error::{BaseErrorKind, ErrorTree, Expectation};
 use crate::parser::{spanned, IResult, Input};
+
 use nom::branch::alt;
 use nom::character::complete::multispace0;
 use nom::combinator::opt;
 use nom::multi::separated_list1;
 use nom::sequence::terminated;
 use nom::{AsChar, InputIter, Slice};
-use nom_supreme::error::{BaseErrorKind, ErrorTree, Expectation};
 use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
 
@@ -32,9 +33,7 @@ where
     alt((comma_list1(f), multispace0.value(vec![])))
 }
 
-pub fn comma_list1<'a, F: 'a, O: 'a>(
-    f: F,
-) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
+pub fn comma_list1<'a, F: 'a, O: 'a>(f: F) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
 where
     F: FnMut(Input<'a>) -> IResult<O>,
 {
