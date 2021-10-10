@@ -32,10 +32,10 @@ An abstract syntax tree (AST)...
 
 ## Goals / Progress
 
-| Goal | Status |
-|---|---|
-| Parser generating AST | :hourglass_flowing_sand: working, 85% complete |
-| Replace nom combinators | :hourglass_flowing_sand: 70% complete |
-| Spans in AST (locations for error reporting) | :heavy_check_mark: implemented |
-| Serde Deserializer using AST | :hourglass_flowing_sand: working, 70% complete |
-| `ron-edit` (format & comments preserving writer) | :x: to be done |
+| Goal                                             | Status                                         |
+|--------------------------------------------------|------------------------------------------------|
+| Parser generating AST                            | :hourglass_flowing_sand: working, 85% complete |
+| Replace nom combinators                          | :hourglass_flowing_sand: 70% complete          |
+| Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                 |
+| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 70% complete |
+| `ron-edit` (format & comments preserving writer) | :x: to be done                                 |

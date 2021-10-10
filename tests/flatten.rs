@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use ron_nom::serde::from_str;
+use ron_reboot::serde::from_str;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
