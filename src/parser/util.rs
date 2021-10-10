@@ -9,9 +9,34 @@ use nom::character::complete::multispace0;
 use nom::combinator::opt;
 use nom::multi::separated_list1;
 use nom::sequence::terminated;
-use nom::{AsChar, InputIter, Parser, Slice};
-use nom_supreme::tag::complete::tag;
+use nom::{AsChar, InputIter, InputTake, Parser, Slice};
 use nom_supreme::ParserExt;
+
+#[inline]
+fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
+    Err(nom::Err::Error(ErrorTree::Base {
+        location: input,
+        kind: BaseErrorKind::Expected(expectation),
+    }))
+}
+
+pub fn take_while(condition: impl Fn(char) -> bool + Clone) -> impl Clone + Fn(Input) -> IResult<Input> {
+    move |input: Input| {
+        match input.char_indices().skip_while(|(_ind, c)| condition(*c)).next() {
+            Some((ind, _)) => Ok(input.take_split(ind)),
+            None => Ok(input.take_split(input.len()))
+        }
+    }
+}
+
+pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResult<Input> {
+    let tag_len = tag.len();
+
+    move |input: Input| match input.starts_with(tag) {
+        true => Ok(input.take_split(tag_len)),
+        false => base_err(input, Expectation::Tag(tag)),
+    }
+}
 
 pub fn take_if_c(
     condition: impl Fn(char) -> bool,
@@ -79,7 +104,21 @@ where
     F: FnMut(Input<'a>) -> IResult<O>,
 {
     terminated(
-        separated_list1(tag(","), spanned(f)),
-        opt(tag(",").precedes(multispace0)),
+        separated_list1(one_char(','), spanned(f)),
+        opt(one_char(',').precedes(multispace0)),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_take_while() {
+        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("ababcabab")).unwrap().1.len(), 4);
+        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("cababcabab")).unwrap().1.len(), 0);
+        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("")).unwrap().1.len(), 0);
+        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("c")).unwrap().1.len(), 0);
+        assert_eq!(take_while(|c| c == 'a' || c == 'b')(Input::new("b")).unwrap().1.len(), 1);
+    }
 }

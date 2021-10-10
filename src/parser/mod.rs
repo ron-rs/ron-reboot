@@ -3,9 +3,9 @@ use crate::ast::{
     SignedInteger, Spanned, Struct, UnsignedInteger,
 };
 use crate::parser::char_categories::{is_ident_first_char, is_ident_other_char};
-use crate::parser::util::{comma_list0, comma_list1, one_char, one_of_chars, take_if_c};
+use crate::parser::util::{comma_list0, comma_list1, one_char, one_of_chars, tag, take_if_c, take_while};
 use nom::branch::alt;
-use nom::bytes::complete::{take_till, take_while};
+use nom::bytes::complete::{take_till};
 use nom::character::complete::{digit1, multispace0};
 use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
@@ -13,7 +13,6 @@ use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::Parser;
 use nom_locate::{position, LocatedSpan};
-use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
 use std::str::FromStr;
 
@@ -230,8 +229,8 @@ fn extension_name(input: Input) -> IResult<Extension> {
 }
 
 fn attribute_enable(input: Input) -> IResult<Attribute> {
-    let start = tag("enable").precedes(ws(tag("(")));
-    let end = tag(")");
+    let start = tag("enable").precedes(ws(one_char('(')));
+    let end = one_char(')');
 
     delimited(
         start,
@@ -241,18 +240,16 @@ fn attribute_enable(input: Input) -> IResult<Attribute> {
 }
 
 pub fn attribute(input: Input) -> IResult<Attribute> {
-    let start = tag("#").precedes(ws(tag("!"))).precedes(ws(tag("[")));
-    let end = tag("]");
+    let start = one_char('#').precedes(ws(one_char('!'))).precedes(ws(one_char('[')));
+    let end = one_char(']');
 
     delimited(start, ws(attribute_enable), end)
         .context("attribute")
         .parse(input)
 }
 
-pub fn expr(input: Input) -> IResult<Expr> {
-    context(
-        "expression",
-        alt((
+fn expr_inner(input: Input) -> IResult<Expr> {
+    alt((
             map(bool, Expr::Bool),
             map(tuple, Expr::Tuple),
             map(list, Expr::List),
@@ -262,7 +259,13 @@ pub fn expr(input: Input) -> IResult<Expr> {
             map(decimal, Expr::Decimal),
             map(unescaped_str, Expr::Str),
             map(string, Expr::String),
-        )),
+        ))(input)
+}
+
+pub fn expr(input: Input) -> IResult<Expr> {
+    context(
+        "expression",
+        expr_inner,
     )(input)
 }
 
