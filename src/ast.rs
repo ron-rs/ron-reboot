@@ -1,6 +1,5 @@
 use derivative::Derivative;
 
-use crate::error::{Error, PhantomError};
 use crate::parser::Input;
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
@@ -61,8 +60,8 @@ pub enum Extension {
 pub struct Ident<'a>(pub &'a str);
 
 impl<'a> Ident<'a> {
-    pub fn from_input(input: Input<'a>) -> Result<Self, PhantomError> {
-        Ok(Ident(input.fragment()))
+    pub fn from_input(input: Input<'a>) -> Self {
+        Ident(input.fragment())
     }
 }
 
@@ -73,14 +72,11 @@ pub enum Sign {
 }
 
 impl Sign {
-    pub fn from_char(sign: char) -> Result<Self, Error> {
+    pub fn from_char(sign: char) -> Option<Self> {
         match sign {
-            '+' => Ok(Sign::Positive),
-            '-' => Ok(Sign::Negative),
-            _ => Err(Error::AnyError(format!(
-                "expected '+' or '-', got {}",
-                sign
-            ))),
+            '+' => Some(Sign::Positive),
+            '-' => Some(Sign::Negative),
+            _ => None,
         }
     }
 }
@@ -197,8 +193,8 @@ impl<'a> Struct<'a> {
     pub fn new(
         ident: Option<Spanned<'a, Ident<'a>>>,
         fields: Spanned<'a, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>>,
-    ) -> Result<Self, PhantomError> {
-        Ok(Struct { ident, fields })
+    ) -> Self {
+        Struct { ident, fields }
     }
 
     #[cfg(test)]
@@ -212,7 +208,6 @@ impl<'a> Struct<'a> {
                     .collect(),
             ),
         )
-        .unwrap()
     }
 }
 

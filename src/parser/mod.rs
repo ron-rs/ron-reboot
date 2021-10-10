@@ -49,7 +49,7 @@ where
 }
 
 pub fn ident(input: Input) -> IResult<Input, Ident> {
-    map_res(alphanumeric1, Ident::from_input)(input)
+    map(alphanumeric1, Ident::from_input)(input)
 }
 
 pub fn sign(input: Input) -> IResult<Input, Sign> {

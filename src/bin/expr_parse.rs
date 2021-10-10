@@ -1,4 +1,3 @@
-use nom::Err;
 use ron_nom::error_fmt::ErrorTreeFmt;
 use ron_nom::parser::ron;
 use std::io::{stdin, Read};
