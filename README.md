@@ -1,9 +1,10 @@
-# EXPERIMENT: Rusty Object Notation implementation with `nom`
+# EXPERIMENT: Rusty Object Notation reboot
 
-[`nom`](https://github.com/Geal/nom) is a Rust parsing library. The intention of
-this project is to evaluate whether RON could benefit from using this parser
-over the
-[rather error-prone, manual logic it is using right now](https://github.com/ron-rs/ron/blob/master/src/parse.rs).
+Experimental implementation of a new parser for RON using small functional parsers
+for individual syntax elements over a stateful parser.
+
+This experiment started off as "RON + [nom](https://github.com/Geal/nom)", and is still using `nom`
+but is slowly replacing nom with its own combinators.
 
 ## Motivation
 
@@ -15,11 +16,26 @@ The current `ron` parsing suffers from the following problems:
     * limits reuse
 * serde's data model stops us from accurately reflecting struct / map and struct names
 
-## Goals
+## Benefits
+
+Stateless / functional parsers are
+
+* easier to maintain
+* easier to reuse
+* much easier to test
+
+An abstract syntax tree (AST)...
+
+* makes the deserializer much easier & cleaner to implement
+* allows reporting locations of syntax & type errors
+* can be reused by multiple deserializer implementations (`serde::Deserializer`, `our_own::Deserializer`, `ron-edit`)
+
+## Goals / Progress
 
 | Goal | Status |
 |---|---|
-| Parser generating AST | :hourglass_flowing_sand: working, 80% complete |
+| Parser generating AST | :hourglass_flowing_sand: working, 85% complete |
+| Replace nom combinators | :hourglass_flowing_sand: 40% complete |
 | Spans in AST (locations for error reporting) | :heavy_check_mark: implemented |
-| Serde Deserializer using AST | :hourglass_flowing_sand: working, 20% complete |
+| Serde Deserializer using AST | :hourglass_flowing_sand: working, 70% complete |
 | `ron-edit` (format & comments preserving writer) | :x: to be done |
