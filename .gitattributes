@@ -4,6 +4,7 @@
 *.rs saneWs
 *.ron saneWs
 *.toml saneWs
+*.md saneWs
 
 .gitattributes saneWs
 .gitignore saneWs
