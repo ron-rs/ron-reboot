@@ -2,7 +2,7 @@
 
 use nom::{
     branch::alt, character::complete::multispace0, combinator::opt, multi::separated_list1,
-    sequence::terminated, AsChar, InputIter, InputTake, Parser, Slice,
+    sequence::terminated, AsChar, InputIter, InputTake, Parser, Slice
 };
 use nom_supreme::ParserExt;
 
@@ -13,6 +13,7 @@ use crate::{
         spanned, IResult, Input,
     },
 };
+use crate::parser::InputParseError;
 
 #[inline]
 fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
@@ -20,6 +21,36 @@ fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
         location: input,
         kind: BaseErrorKind::Expected(expectation),
     }))
+}
+
+pub fn map<O, O2>(
+    parser: impl Fn(Input) -> IResult<O> + Clone,
+    map: impl Fn(O) -> O2 + Clone
+) -> impl Clone + Fn(Input) -> IResult<O2> {
+    move |input: Input| {
+        let (input, o1) = parser(input)?;
+        Ok((input, map(o1)))
+    }
+}
+
+pub fn map_res<O, O2>(
+    parser: impl Fn(Input) -> IResult<O> + Clone,
+    map: impl Fn(O) -> Result<O2, nom::Err<InputParseError>> + Clone
+) -> impl Clone + Fn(Input) -> IResult<O2> {
+    move |input: Input| {
+        let (input, o1) = parser(input)?;
+        Ok((input, map(o1)?))
+    }
+}
+
+pub fn take_while1(
+    condition: impl Fn(char) -> bool + Clone,
+    expectations: &'static [Expectation]
+) -> impl Clone + Fn(Input) -> IResult<Input> {
+    map(take_while, |m: Input| match m.is_empty() {
+        true => base_err(m, Expectation::OneOfExpectations(expectations)),
+        false => Ok(m),
+    })
 }
 
 pub fn take_while(

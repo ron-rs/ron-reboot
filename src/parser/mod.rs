@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use nom::{
     branch::alt,
-    bytes::complete::take_till,
     character::complete::{digit1, multispace0},
     combinator::{cut, map, map_res, opt},
     error::context,
@@ -225,7 +224,7 @@ pub fn bool(input: Input) -> IResult<bool> {
 }
 
 fn inner_str(input: Input) -> IResult<&str> {
-    take_till(|c| c == '"' || c == '\\')
+    take_while(|c| c != '"' && c != '\\')
         .map(|x: Input| *x.fragment())
         .parse(input)
 }
