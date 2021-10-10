@@ -2,11 +2,9 @@ use std::str::FromStr;
 
 use nom::{
     branch::alt,
-    multi::many0,
     sequence::{delimited, pair, preceded, separated_pair},
     Parser,
 };
-use nom::combinator::cut;
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::ParserExt;
 
@@ -18,12 +16,11 @@ use crate::{
     parser::{
         char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
         util::{
-            comma_list0, comma_list1, context, map, map_res, multispace0, one_char, one_of_chars,
-            opt, tag, take_if_c, take_while,
+            comma_list0, comma_list1, context, cut, many0, map, map_res, multispace0, one_char,
+            one_of_chars, one_of_tags, opt, recognize, tag, take_if_c, take_while,
         },
     },
 };
-use crate::parser::util::recognize;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
@@ -241,10 +238,7 @@ pub fn tuple(input: Input) -> IResult<List> {
 }
 
 pub fn bool(input: Input) -> IResult<bool> {
-    context(
-        "bool",
-        alt((tag("true").value(true), tag("false").value(false))),
-    )(input)
+    context("bool", one_of_tags(&["true", "false"], &[true, false]))(input)
 }
 
 fn inner_str(input: Input) -> IResult<&str> {
@@ -258,10 +252,10 @@ pub fn unescaped_str(input: Input) -> IResult<&str> {
 }
 
 fn extension_name(input: Input) -> IResult<Extension> {
-    alt((
-        tag("unwrap_newtypes").value(Extension::UnwrapNewtypes),
-        tag("implicit_some").value(Extension::ImplicitSome),
-    ))(input)
+    one_of_tags(
+        &["unwrap_newtypes", "implicit_some"],
+        &[Extension::UnwrapNewtypes, Extension::ImplicitSome],
+    )(input)
 }
 
 fn attribute_enable(input: Input) -> IResult<Attribute> {

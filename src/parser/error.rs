@@ -27,6 +27,9 @@ pub enum Expectation {
     /// One of the chars in the str
     OneOfChars(&'static str),
 
+    /// One of the chars in the str
+    OneOfTags(&'static [&'static str]),
+
     /// One of the classes in the array
     OneOfExpectations(&'static [Self]),
 
@@ -71,6 +74,9 @@ impl Display for Expectation {
             Expectation::Char(c) => write!(f, "{:?}", c),
             Expectation::OneOfChars(one_of) => {
                 write_pretty_list(f, one_of.chars(), |f, c| write!(f, "{:?}", c))
+            }
+            Expectation::OneOfTags(one_of) => {
+                write_pretty_list(f, one_of.iter(), |f, c| write!(f, "{:?}", c))
             }
             Expectation::OneOfExpectations(one_of) => {
                 write_pretty_list(f, one_of.iter(), |f, c| write!(f, "{}", c))

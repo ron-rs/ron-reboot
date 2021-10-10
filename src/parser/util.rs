@@ -1,6 +1,12 @@
 #![allow(dead_code)]
 
-use nom::{branch::alt, error::ContextError, multi::separated_list1, sequence::{preceded, terminated}, AsChar, Err, InputIter, InputTake, Parser, Slice, Offset};
+use nom::{
+    branch::alt,
+    error::ContextError,
+    multi::separated_list1,
+    sequence::{preceded, terminated},
+    AsChar, Err, InputIter, InputTake, Offset, Parser, Slice,
+};
 use nom_supreme::ParserExt;
 
 use crate::{
@@ -44,9 +50,9 @@ where
     }
 }
 
-fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
-    where
-        F: FnMut(Input<'a>) -> IResult<'a, O>,
+pub fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+where
+    F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
     move |input: Input| match parser.parse(input) {
         Err(Err::Error(e)) => Err(Err::Failure(e)),
@@ -77,6 +83,31 @@ where
         Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
         Err(Err::Error(e)) => Err(Err::Error(InputParseError::add_context(i, context, e))),
         Err(Err::Failure(e)) => Err(Err::Failure(InputParseError::add_context(i, context, e))),
+    }
+}
+
+pub fn many0<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, Vec<O>>
+where
+    F: FnMut(Input<'a>) -> IResult<'a, O>,
+{
+    move |mut i: Input| {
+        let mut acc = Vec::with_capacity(4);
+        loop {
+            let len = i.len();
+            match f.parse(i.clone()) {
+                Err(Err::Error(_)) => return Ok((i, acc)),
+                Err(e) => return Err(e),
+                Ok((i1, o)) => {
+                    // infinite loop check: the parser must always consume
+                    if i1.len() == len {
+                        unimplemented!("infinite loop - parser not consuming?");
+                    }
+
+                    i = i1;
+                    acc.push(o);
+                }
+            }
+        }
     }
 }
 
@@ -173,7 +204,6 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
     }
 }
 
-#[inline]
 pub fn one_of_chars<O: Clone>(
     one_of: &'static str,
     mapping: &'static [O],
@@ -186,6 +216,23 @@ pub fn one_of_chars<O: Clone>(
         _ => Err(nom::Err::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
+        })),
+    }
+}
+
+pub fn one_of_tags<O: Clone>(
+    one_of: &'static [&'static str],
+    mapping: &'static [O],
+) -> impl Fn(Input) -> IResult<O> {
+    move |input: Input| match one_of
+        .iter()
+        .enumerate()
+        .find(|(_, &t)| input.starts_with(t))
+    {
+        Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
+        _ => Err(nom::Err::Error(ErrorTree::Base {
+            location: input,
+            kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),
         })),
     }
 }
