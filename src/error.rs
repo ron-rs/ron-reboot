@@ -89,6 +89,8 @@ impl std::error::Error for Error {}
 #[derive(Clone, Debug, PartialEq)]
 pub enum ErrorKind {
     ExpectedBool,
+    ExpectedString,
+    ExpectedList,
 
     ParseError(String),
 
@@ -102,6 +104,8 @@ impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ErrorKind::ExpectedBool => write!(f, "expected bool"),
+            ErrorKind::ExpectedString => write!(f, "expected string"),
+            ErrorKind::ExpectedList => write!(f, "expected list"),
             ErrorKind::ParseError(e) => write!(f, "parsing error: {}", e),
             ErrorKind::Custom(s) => write!(f, "{}", s),
             ErrorKind::__NonExhaustive => unimplemented!(),

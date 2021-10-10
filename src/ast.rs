@@ -1,3 +1,4 @@
+use std::mem::replace;
 use derivative::Derivative;
 
 use crate::parser::Input;
@@ -249,6 +250,7 @@ impl<'a> List<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr<'a> {
+    Unit,
     Bool(bool),
     Tuple(List<'a>),
     List(List<'a>),
@@ -257,4 +259,11 @@ pub enum Expr<'a> {
     Integer(Integer),
     String(String),
     Decimal(Decimal),
+}
+
+impl<'a> Expr<'a> {
+    /// Replace expr with Unit, returning ownership of the contained expr
+    pub fn take(&mut self) -> Self {
+        replace(self, Expr::Unit)
+    }
 }

@@ -1,8 +1,8 @@
 #![allow(unused_variables)]
 
 use crate::ast::Expr::*;
-use crate::error::ron_err;
-use crate::error::ErrorKind::ExpectedBool;
+use crate::error::{ErrorKind, ron_err};
+use crate::error::ErrorKind::{ExpectedBool, ExpectedString};
 use crate::{ast, parser};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -16,20 +16,27 @@ pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
 {
-    let ron = parser::ron(s)?;
-    let mut deserializer = RonDeserializer::from_ron(&ron);
+    let mut ron = parser::ron(s)?;
 
-    T::deserialize(deserializer)
+    T::deserialize(RonDeserializer::from_ron(&mut ron))
 }
 
 pub struct RonDeserializer<'a, 'de> {
     //ron: ast::Ron<'a>,
-    expr: &'a ast::Spanned<'de, ast::Expr<'de>>,
+    expr: &'a mut ast::Spanned<'de, ast::Expr<'de>>,
 }
 
 impl<'a, 'de> RonDeserializer<'a, 'de> {
-    pub fn from_ron(ron: &'a ast::Ron<'de>) -> Self {
-        RonDeserializer { expr: &ron.expr }
+    /// Create a deserializer from a ron ast
+    ///
+    /// The ast will be completely replaced with empty exprs,
+    /// thus cannot be used anymore.
+    pub fn from_ron(ron: &'a mut ast::Ron<'de>) -> Self {
+        RonDeserializer { expr: &mut ron.expr }
+    }
+
+    fn err<V>(&self, kind: ErrorKind) -> Result<V, crate::error::Error> {
+        Err(ron_err(kind, self.expr.start, self.expr.end))
     }
 }
 
@@ -49,7 +56,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     {
         match self.expr.value {
             Bool(b) => visitor.visit_bool(b),
-            _ => Err(ron_err(ExpectedBool, self.expr.start, self.expr.end)),
+            _ => self.err(ExpectedBool),
         }
     }
 
@@ -141,7 +148,10 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        todo!()
+        match self.expr.value.take() {
+            String(s) => visitor.visit_string(s),
+            _ => self.err(ExpectedString)
+        }
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -198,7 +208,15 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        todo!()
+        match self.expr.value.take() {
+            // TODO Tuple(_) => {}
+            List(mut list) => {
+                visitor.visit_seq(SeqDeserializer {
+                    iter: list.elements.iter_mut(),
+                })
+            }
+            _ => self.err(ExpectedBool),
+        }
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -267,7 +285,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
 }
 
 struct SeqDeserializer<'a, 'de> {
-    iter: std::slice::Iter<'a, ast::Spanned<'de, ast::Expr<'a>>>,
+    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::Expr<'de>>>,
 }
 
 impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
