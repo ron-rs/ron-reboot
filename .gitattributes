@@ -2,6 +2,7 @@
 
 * text=auto eol=lf
 *.rs saneWs
+*.ron saneWs
 *.toml saneWs
 
 .gitattributes saneWs

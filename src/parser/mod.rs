@@ -3,11 +3,11 @@ use crate::ast::{
     SignedInteger, Spanned, Struct, UnsignedInteger,
 };
 use crate::parser::char_categories::{is_ident_first_char, is_ident_other_char};
-use crate::parser::util::{comma_list0, comma_list1, one_char};
+use crate::parser::util::{comma_list0, comma_list1, one_char, one_of_chars, take_if_c};
 use nom::branch::alt;
-use nom::bytes::complete::{take, take_till, take_while};
+use nom::bytes::complete::{take_till, take_while};
 use nom::character::complete::{digit1, multispace0};
-use nom::combinator::{cut, map, map_res, opt, verify};
+use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
@@ -51,14 +51,12 @@ where
 }
 
 fn ident_first_char(input: Input) -> IResult<Input> {
-    verify(take(1usize), |c: &Input| {
-        is_ident_first_char(c.bytes().next().unwrap())
-    })(input)
+    take_if_c(is_ident_first_char, &[Expectation::Alpha, Expectation::Char('_')])(input)
 }
 
 fn ident_inner(input: Input) -> IResult<Input> {
     ident_first_char
-        .precedes(take_while(|c| is_ident_other_char(c as u8)))
+        .precedes(take_while(is_ident_other_char))
         .recognize()
         .parse(input)
 }
@@ -68,13 +66,7 @@ pub fn ident(input: Input) -> IResult<Ident> {
 }
 
 pub fn sign(input: Input) -> IResult<Sign> {
-    context(
-        "sign",
-        alt((
-            tag("+").value(Sign::Positive),
-            tag("-").value(Sign::Negative),
-        )),
-    )(input)
+    one_of_chars("+-", &[Sign::Positive, Sign::Negative])(input)
 }
 
 fn decimal_unsigned(input: Input) -> IResult<u64> {
@@ -277,7 +269,7 @@ pub fn expr(input: Input) -> IResult<Expr> {
 fn ron_inner(input: Input) -> IResult<Ron> {
     pair(
         many0(spanned(attribute)),
-        spanned(expr).context("expression root"),
+        spanned(expr),
     )
     .map(|(attributes, expr)| Ron { attributes, expr })
     .parse(input)

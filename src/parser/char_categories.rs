@@ -53,26 +53,26 @@ const ENCODINGS: [u8; 256] = [
     /* 250+: ·········· */ _____, _____, _____, _____, _____, _____
 ];
 
-const fn is_int_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & INT_CHAR != 0
+const fn is_int_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & INT_CHAR != 0
 }
 
-const fn is_float_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & FLOAT_CHAR != 0
+const fn is_float_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & FLOAT_CHAR != 0
 }
 
-pub const fn is_ident_first_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & IDENT_FIRST_CHAR != 0
+pub const fn is_ident_first_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & IDENT_FIRST_CHAR != 0
 }
 
-pub const fn is_ident_other_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & IDENT_OTHER_CHAR != 0
+pub const fn is_ident_other_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & IDENT_OTHER_CHAR != 0
 }
 
-const fn is_ident_raw_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & IDENT_RAW_CHAR != 0
+const fn is_ident_raw_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & IDENT_RAW_CHAR != 0
 }
 
-const fn is_whitespace_char(c: u8) -> bool {
-    ENCODINGS[c as usize] & WHITESPACE_CHAR != 0
+const fn is_whitespace_char(c: char) -> bool {
+    ENCODINGS[c as u8 as usize] & WHITESPACE_CHAR != 0
 }

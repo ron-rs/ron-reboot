@@ -6,6 +6,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter, Write},
 };
 
+use crate::util::write_pretty_list;
 use indent_write::fmt::IndentWriter;
 use nom::{
     error::{ContextError, ErrorKind as NomErrorKind, FromExternalError, ParseError},
@@ -21,6 +22,12 @@ pub enum Expectation {
 
     /// A specific character was expected.
     Char(char),
+
+    /// One of the chars in the str
+    OneOfChars(&'static str),
+
+    /// One of the classes in the array
+    OneOfExpectations(&'static [Self]),
 
     /// An ASCII letter (`[a-zA-Z]`) was expected.
     Alpha,
@@ -58,6 +65,12 @@ impl Display for Expectation {
         match *self {
             Expectation::Tag(tag) => write!(f, "{:?}", tag),
             Expectation::Char(c) => write!(f, "{:?}", c),
+            Expectation::OneOfChars(one_of) => {
+                write_pretty_list(f, one_of.chars(), |f, c| write!(f, "{:?}", c))
+            }
+            Expectation::OneOfExpectations(one_of) => {
+                write_pretty_list(f, one_of.iter(), |f, c| write!(f, "{}", c))
+            }
             Expectation::Alpha => write!(f, "an ascii letter"),
             Expectation::Digit => write!(f, "an ascii digit"),
             Expectation::HexDigit => write!(f, "a hexadecimal digit"),
@@ -89,9 +102,6 @@ pub enum BaseErrorKind {
     /// result of an error during [`map_res`].
     ///
     /// [`map_res`]: crate::parser_ext::ParserExt::map_res
-    // Design note: I've gone back and forth on whether or not to exclude the
-    // ErrorKind from this variant. Right now I'm doing so, because it seems
-    // like in practice it's *always* MapRes.
     External(Box<dyn Error + Send + Sync + 'static>),
 }
 
@@ -124,7 +134,7 @@ impl Display for StackContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             StackContext::Kind(kind) => write!(f, "while parsing {:?}", kind),
-            StackContext::Context(ctx) => write!(f, "in section {:?}", ctx),
+            StackContext::Context(ctx) => write!(f, "could not match {:?}", ctx),
         }
     }
 }
@@ -197,13 +207,14 @@ impl<I: Display> Display for ErrorTree<I> {
             ErrorTree::Base { location, kind } => write!(f, "{} at {:#}", kind, location),
             ErrorTree::Stack { contexts, base } => {
                 contexts.iter().rev().try_for_each(|(location, context)| {
-                    writeln!(f, "{} at {:#},", context, location)
+                    writeln!(f, "{} at {:#} because", context, location)
                 })?;
 
-                base.fmt(f)
+                let mut f = IndentWriter::new("  ", f);
+                write!(f, "{}", base)
             }
             ErrorTree::Alt(siblings) => {
-                writeln!(f, "one of:")?;
+                writeln!(f, "none of these matched:")?;
                 let mut f = IndentWriter::new("  ", f);
                 write!(
                     f,
@@ -329,10 +340,7 @@ impl<I> ContextError<I> for ErrorTree<I> {
             // This is already a stack, so push on to it
             ErrorTree::Stack { mut contexts, base } => {
                 contexts.push(context);
-                ErrorTree::Stack {
-                    base,
-                    contexts: contexts,
-                }
+                ErrorTree::Stack { base, contexts }
             }
 
             // This isn't a stack, create a new stack
