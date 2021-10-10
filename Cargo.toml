@@ -21,12 +21,11 @@ default = ["serde1_serde"]
 # Serialize derives for ast
 serde1_ast_derives = ["serde/derive"]
 # serde deserializer
-serde1_serde = []
+serde1_serde = ["serde"]
 
 [dev-dependencies]
 ron = "*"
 serde = { version = "1", features = ["derive"] }
-serde_yaml = "*"
 
 [[example]]
 name = "roundtrip"

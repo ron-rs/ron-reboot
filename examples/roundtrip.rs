@@ -15,8 +15,11 @@ fn main() {
 
             println!();
             println!("AST:");
-            println!("{}", to_string_pretty(&ron_nom::parser::ron(&s).unwrap(), Default::default()).unwrap());
-        },
+            println!(
+                "{}",
+                to_string_pretty(&ron_nom::parser::ron(&s).unwrap(), Default::default()).unwrap()
+            );
+        }
         Err(e) => {
             let mut e = &e as &dyn std::error::Error;
             eprintln!("{}", e);

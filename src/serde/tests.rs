@@ -23,7 +23,10 @@ fn strings() {
 
 #[test]
 fn zero_copy_strs() {
-    assert_eq!(from_str::<&str>(r#" "What a nice, zero-copy string!" "#), Ok("What a nice, zero-copy string!"));
+    assert_eq!(
+        from_str::<&str>(r#" "What a nice, zero-copy string!" "#),
+        Ok("What a nice, zero-copy string!")
+    );
     assert_eq!(from_str::<&str>(r#" "😀😀" "#), Ok("😀😀"));
     assert_eq!(
         from_str::<&str>(r#"  "Escapes are \\ fun but not available here :|" "#),

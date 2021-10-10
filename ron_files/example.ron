@@ -1,14 +1,8 @@
-#![enable(unwrap_newtypes)]
 
 (
-    mybool: true,
-    list: [
-        NestedStruct(
-            a: "string",
-            also: "string \nwith escapes!",
-            and: "
-even
-newlines work!",
-        ),
-    ],
+    foo: false,
+    bar: "bar",
+
+    extension_baz: true,
 )
+        

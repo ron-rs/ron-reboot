@@ -2,11 +2,12 @@ use crate::ast::{
     Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
     SignedInteger, Spanned, Struct, UnsignedInteger,
 };
+use crate::parser::char_categories::{is_ident_first_char, is_ident_other_char};
 use crate::parser::util::{comma_list0, comma_list1, one_char};
 use nom::branch::alt;
-use nom::bytes::complete::take_till;
-use nom::character::complete::{alphanumeric1, digit1, multispace0};
-use nom::combinator::{cut, map, map_res, opt};
+use nom::bytes::complete::{take, take_till, take_while};
+use nom::character::complete::{digit1, multispace0};
+use nom::combinator::{cut, map, map_res, opt, verify};
 use nom::error::context;
 use nom::multi::many_till;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
@@ -21,6 +22,7 @@ pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 pub type IResult<'a, I, O> = nom::IResult<I, O, ErrorTree<Input<'a>>>;
 
+mod char_categories;
 mod string;
 mod util;
 
@@ -49,8 +51,21 @@ where
     delimited(multispace0, inner, multispace0)
 }
 
+fn ident_first_char(input: Input) -> IResult<Input, Input> {
+    verify(take(1usize), |c: &Input| {
+        is_ident_first_char(c.bytes().next().unwrap())
+    })(input)
+}
+
+fn ident_inner(input: Input) -> IResult<Input, Input> {
+    ident_first_char
+        .precedes(take_while(|c| is_ident_other_char(c as u8)))
+        .recognize()
+        .parse(input)
+}
+
 pub fn ident(input: Input) -> IResult<Input, Ident> {
-    map(alphanumeric1, Ident::from_input)(input)
+    context("ident", map(ident_inner, Ident::from_input))(input)
 }
 
 pub fn sign(input: Input) -> IResult<Input, Sign> {
@@ -148,7 +163,11 @@ where
     F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
 {
     #[allow(unused_parens)]
-    delimited(one_char(start_tag), inner, /*TODO: conditional cut*/(one_char(end_tag)))
+    delimited(
+        one_char(start_tag),
+        inner,
+        /*TODO: conditional cut*/ (one_char(end_tag)),
+    )
 }
 
 pub fn r#struct(input: Input) -> IResult<Input, Struct> {
@@ -461,7 +480,30 @@ mod tests {
     }
 
     #[test]
+    fn ident_underscore() {
+        assert_eq!(eval!(ident, "_start"), Ident("_start"));
+        assert_eq!(eval!(ident, "ends_"), Ident("ends_"));
+        assert_eq!(
+            eval!(ident, "_very_many_underscores_"),
+            Ident("_very_many_underscores_")
+        );
+        assert_eq!(
+            eval!(ident, "sane_identifier_for_a_change"),
+            Ident("sane_identifier_for_a_change")
+        );
+    }
+
+    #[test]
+    fn invalid_ident() {
+        assert!(eval!(@result ident, "1hello").is_err());
+    }
+
+    #[test]
     fn basic_ident() {
         assert_eq!(eval!(ident, "Config"), Ident("Config"));
+        assert_eq!(
+            eval!(ident, "doesany1usenumbers"),
+            Ident("doesany1usenumbers")
+        );
     }
 }
