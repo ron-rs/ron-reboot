@@ -1,19 +1,19 @@
 #![allow(dead_code)]
 
 use nom::{
-    branch::alt, character::complete::multispace0, combinator::opt, multi::separated_list1,
-    sequence::terminated, AsChar, InputIter, InputTake, Parser, Slice
+    branch::alt, combinator::opt, multi::separated_list1, sequence::terminated, AsChar, InputIter,
+    InputTake, Parser, Slice,
 };
 use nom_supreme::ParserExt;
 
+use crate::parser::char_categories::is_ws;
 use crate::{
     ast::Spanned,
     parser::{
         error::{BaseErrorKind, ErrorTree, Expectation},
-        spanned, IResult, Input,
+        spanned, IResult, Input, OutputResult,
     },
 };
-use crate::parser::InputParseError;
 
 #[inline]
 fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
@@ -23,32 +23,44 @@ fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
     }))
 }
 
-pub fn map<O, O2>(
-    parser: impl Fn(Input) -> IResult<O> + Clone,
-    map: impl Fn(O) -> O2 + Clone
-) -> impl Clone + Fn(Input) -> IResult<O2> {
+#[inline]
+fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
+    Err(nom::Err::Error(ErrorTree::Base {
+        location: input,
+        kind: BaseErrorKind::Expected(expectation),
+    }))
+}
+
+pub fn multispace0(input: Input) -> IResult<Input> {
+    take_while(is_ws)(input)
+}
+
+pub fn map<'a, O, O2>(
+    mut parser: impl FnMut(Input<'a>) -> IResult<'a, O>,
+    map: impl Fn(O) -> O2 + Clone,
+) -> impl FnMut(Input<'a>) -> IResult<'a, O2> {
     move |input: Input| {
         let (input, o1) = parser(input)?;
         Ok((input, map(o1)))
     }
 }
 
-pub fn map_res<O, O2>(
-    parser: impl Fn(Input) -> IResult<O> + Clone,
-    map: impl Fn(O) -> Result<O2, nom::Err<InputParseError>> + Clone
-) -> impl Clone + Fn(Input) -> IResult<O2> {
+pub fn map_res<'a, O, O2>(
+    mut parser: impl FnMut(Input<'a>) -> IResult<'a, O>,
+    map: impl Fn(O) -> OutputResult<'a, O2> + Clone,
+) -> impl FnMut(Input<'a>) -> IResult<'a, O2> {
     move |input: Input| {
         let (input, o1) = parser(input)?;
         Ok((input, map(o1)?))
     }
 }
 
-pub fn take_while1(
+pub fn take_while1<'a>(
     condition: impl Fn(char) -> bool + Clone,
-    expectations: &'static [Expectation]
-) -> impl Clone + Fn(Input) -> IResult<Input> {
-    map(take_while, |m: Input| match m.is_empty() {
-        true => base_err(m, Expectation::OneOfExpectations(expectations)),
+    expectations: &'static [Expectation],
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>> {
+    map_res(take_while(condition), move |m: Input| match m.is_empty() {
+        true => base_err_res(m, Expectation::OneOfExpectations(expectations)),
         false => Ok(m),
     })
 }

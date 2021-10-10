@@ -2,8 +2,7 @@ use std::str::FromStr;
 
 use nom::{
     branch::alt,
-    character::complete::{digit1, multispace0},
-    combinator::{cut, map, map_res, opt},
+    combinator::{cut, opt},
     error::context,
     multi::many0,
     sequence::{delimited, pair, preceded, separated_pair},
@@ -12,6 +11,8 @@ use nom::{
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::ParserExt;
 
+use crate::parser::char_categories::{is_digit, is_digit_first};
+use crate::parser::util::{map, map_res, multispace0};
 use crate::{
     ast::{
         Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
@@ -26,6 +27,7 @@ use crate::{
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 pub type IResult<'a, O> = nom::IResult<Input<'a>, O, ErrorTree<Input<'a>>>;
+pub type OutputResult<'a, O> = Result<O, nom::Err<InputParseError<'a>>>;
 
 mod char_categories;
 mod error;
@@ -81,7 +83,20 @@ pub fn sign(input: Input) -> IResult<Sign> {
 }
 
 fn decimal_unsigned(input: Input) -> IResult<u64> {
-    map_res(digit1, |digits: Input| u64::from_str(digits.fragment()))(input)
+    map_res(
+        preceded(
+            take_if_c(is_digit_first, &[Expectation::DigitFirst]),
+            take_while(is_digit),
+        ),
+        |digits: Input| {
+            u64::from_str(digits.fragment()).map_err(|e| {
+                nom::Err::Error(ErrorTree::Base {
+                    location: digits,
+                    kind: BaseErrorKind::External(Box::new(e)),
+                })
+            })
+        },
+    )(input)
 }
 
 pub fn unsigned(input: Input) -> IResult<UnsignedInteger> {
@@ -177,7 +192,7 @@ pub fn r#struct(input: Input) -> IResult<Struct> {
     let untagged_struct = spanned(block('(', comma_list0(ident_val_pair), ')'));
     // Need to create temp var for borrow checker
     let x = map(
-        pair(ident_struct, untagged_struct).context("struct"),
+        context("struct", pair(ident_struct, untagged_struct)),
         |(ident, fields)| Struct { fields, ident },
     )(input);
 
@@ -191,7 +206,7 @@ fn key_val_pair(input: Input) -> IResult<KeyValue<Expr>> {
 
 pub fn rmap(input: Input) -> IResult<Map> {
     map(
-        spanned(block('{', comma_list0(key_val_pair), '}')).context("map"),
+        context("map", spanned(block('{', comma_list0(key_val_pair), '}'))),
         |fields| Map { entries: fields },
     )(input)
 }

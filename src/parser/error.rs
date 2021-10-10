@@ -36,6 +36,9 @@ pub enum Expectation {
     /// A decimal digit (`[0-9]`) was expected.
     Digit,
 
+    /// A decimal digit (`[1-9]`) was expected.
+    DigitFirst,
+
     /// A hexadecimal digit (`[0-9a-fA-F]`) was expected.
     HexDigit,
 
@@ -74,6 +77,7 @@ impl Display for Expectation {
             }
             Expectation::Alpha => write!(f, "an ascii letter"),
             Expectation::Digit => write!(f, "an ascii digit"),
+            Expectation::DigitFirst => write!(f, "a non-zero ascii digit [1-9]"),
             Expectation::HexDigit => write!(f, "a hexadecimal digit"),
             Expectation::OctDigit => write!(f, "an octal digit"),
             Expectation::AlphaNumeric => write!(f, "an ascii alphanumeric character"),
