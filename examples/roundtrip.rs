@@ -16,7 +16,8 @@ fn main() {
             println!("AST:");
             println!(
                 "{}",
-                to_string_pretty(&ron_reboot::parser::ron(&s).unwrap(), Default::default()).unwrap()
+                to_string_pretty(&ron_reboot::parser::ron(&s).unwrap(), Default::default())
+                    .unwrap()
             );
         }
         Err(e) => {

@@ -2,27 +2,28 @@ use std::str::FromStr;
 
 use nom::{
     branch::alt,
-    combinator::{cut, opt},
-    error::context,
     multi::many0,
     sequence::{delimited, pair, preceded, separated_pair},
     Parser,
 };
+use nom::combinator::cut;
 use nom_locate::{position, LocatedSpan};
 use nom_supreme::ParserExt;
 
-use crate::parser::char_categories::{is_digit, is_digit_first};
-use crate::parser::util::{map, map_res, multispace0};
 use crate::{
     ast::{
         Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
         SignedInteger, Spanned, Struct, UnsignedInteger,
     },
     parser::{
-        char_categories::{is_ident_first_char, is_ident_other_char},
-        util::{comma_list0, comma_list1, one_char, one_of_chars, tag, take_if_c, take_while},
+        char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
+        util::{
+            comma_list0, comma_list1, context, map, map_res, multispace0, one_char, one_of_chars,
+            opt, tag, take_if_c, take_while,
+        },
     },
 };
+use crate::parser::util::recognize;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
@@ -82,25 +83,33 @@ pub fn sign(input: Input) -> IResult<Sign> {
     one_of_chars("+-", &[Sign::Positive, Sign::Negative])(input)
 }
 
+fn parse_u64(input: Input) -> OutputResult<u64> {
+    u64::from_str(input.fragment()).map_err(|e| {
+        nom::Err::Error(ErrorTree::Base {
+            location: input,
+            kind: BaseErrorKind::External(Box::new(e)),
+        })
+    })
+}
+
 fn decimal_unsigned(input: Input) -> IResult<u64> {
+    map_res(take_while(is_digit), parse_u64)(input)
+}
+
+fn decimal_unsigned_no_start_with_zero(input: Input) -> IResult<u64> {
     map_res(
-        preceded(
+        recognize(preceded(
             take_if_c(is_digit_first, &[Expectation::DigitFirst]),
             take_while(is_digit),
-        ),
-        |digits: Input| {
-            u64::from_str(digits.fragment()).map_err(|e| {
-                nom::Err::Error(ErrorTree::Base {
-                    location: digits,
-                    kind: BaseErrorKind::External(Box::new(e)),
-                })
-            })
-        },
+        )),
+        parse_u64,
     )(input)
 }
 
 pub fn unsigned(input: Input) -> IResult<UnsignedInteger> {
-    map(decimal_unsigned, |number| UnsignedInteger { number })(input)
+    map(decimal_unsigned_no_start_with_zero, |number| {
+        UnsignedInteger { number }
+    })(input)
 }
 
 pub fn signed_integer(input: Input) -> IResult<SignedInteger> {
@@ -317,7 +326,15 @@ mod tests {
 
     macro_rules! eval {
         ($parser:ident,$input:expr) => {
-            $parser(Input::new($input)).unwrap().1
+            match $parser($crate::parser::Input::new($input)) {
+                Ok((_, the_value)) => the_value,
+                Err(nom::Err::Error(e) | nom::Err::Failure(e)) => {
+                    panic!("{}", e)
+                }
+                Err(e) => {
+                    panic!("{}", e)
+                }
+            }
         };
         (@result $parser:ident,$input:expr) => {
             $parser(Input::new($input))

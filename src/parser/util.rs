@@ -1,17 +1,14 @@
 #![allow(dead_code)]
 
-use nom::{
-    branch::alt, combinator::opt, multi::separated_list1, sequence::terminated, AsChar, InputIter,
-    InputTake, Parser, Slice,
-};
+use nom::{branch::alt, error::ContextError, multi::separated_list1, sequence::{preceded, terminated}, AsChar, Err, InputIter, InputTake, Parser, Slice, Offset};
 use nom_supreme::ParserExt;
 
-use crate::parser::char_categories::is_ws;
 use crate::{
     ast::Spanned,
     parser::{
+        char_categories::is_ws,
         error::{BaseErrorKind, ErrorTree, Expectation},
-        spanned, IResult, Input, OutputResult,
+        spanned, IResult, Input, InputParseError, OutputResult,
     },
 };
 
@@ -29,6 +26,58 @@ fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
         location: input,
         kind: BaseErrorKind::Expected(expectation),
     }))
+}
+
+pub fn recognize<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<Input<'a>>
+where
+    F: FnMut(Input<'a>) -> IResult<O>,
+{
+    move |input: Input| {
+        let i = input.clone();
+        match parser.parse(i) {
+            Ok((i, _)) => {
+                let index = input.offset(&i);
+                Ok((i, input.slice(..index)))
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+    where
+        F: FnMut(Input<'a>) -> IResult<'a, O>,
+{
+    move |input: Input| match parser.parse(input) {
+        Err(Err::Error(e)) => Err(Err::Failure(e)),
+        rest => rest,
+    }
+}
+
+pub fn opt<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, Option<O>>
+where
+    F: FnMut(Input<'a>) -> IResult<'a, O>,
+{
+    move |input: Input| {
+        let i = input.clone();
+        match f.parse(input) {
+            Ok((i, o)) => Ok((i, Some(o))),
+            Err(Err::Error(_)) => Ok((i, None)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+pub fn context<'a, F, O>(context: &'static str, mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+where
+    F: FnMut(Input<'a>) -> IResult<'a, O>,
+{
+    move |i: Input| match f.parse(i.clone()) {
+        Ok(o) => Ok(o),
+        Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
+        Err(Err::Error(e)) => Err(Err::Error(InputParseError::add_context(i, context, e))),
+        Err(Err::Failure(e)) => Err(Err::Failure(InputParseError::add_context(i, context, e))),
+    }
 }
 
 pub fn multispace0(input: Input) -> IResult<Input> {
@@ -156,7 +205,7 @@ where
 {
     terminated(
         separated_list1(one_char(','), spanned(f)),
-        opt(one_char(',').precedes(multispace0)),
+        opt(preceded(one_char(','), multispace0)),
     )
 }
 
