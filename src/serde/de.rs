@@ -1,8 +1,8 @@
 #![allow(unused_variables)]
 
 use crate::ast::Expr::*;
-use crate::error::{ErrorKind, ron_err};
-use crate::error::ErrorKind::{ExpectedBool, ExpectedString};
+use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
+use crate::error::{ron_err, ErrorKind};
 use crate::{ast, parser};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -32,11 +32,13 @@ impl<'a, 'de> RonDeserializer<'a, 'de> {
     /// The ast will be completely replaced with empty exprs,
     /// thus cannot be used anymore.
     pub fn from_ron(ron: &'a mut ast::Ron<'de>) -> Self {
-        RonDeserializer { expr: &mut ron.expr }
+        RonDeserializer {
+            expr: &mut ron.expr,
+        }
     }
 
     fn err<V>(&self, kind: ErrorKind) -> Result<V, crate::error::Error> {
-        Err(ron_err(kind, self.expr.start, self.expr.end))
+        Err(dbg!(ron_err(kind, self.expr.start, self.expr.end)))
     }
 }
 
@@ -141,7 +143,11 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        todo!()
+        match self.expr.value.take() {
+            Str(s) => visitor.visit_borrowed_str(s),
+            String(s) => self.err(ExpectedStrGotEscapes),
+            _ => self.err(ExpectedString),
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -149,8 +155,9 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
         V: Visitor<'de>,
     {
         match self.expr.value.take() {
+            Str(s) => visitor.visit_str(s),
             String(s) => visitor.visit_string(s),
-            _ => self.err(ExpectedString)
+            _ => self.err(ExpectedString),
         }
     }
 
@@ -210,11 +217,9 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     {
         match self.expr.value.take() {
             // TODO Tuple(_) => {}
-            List(mut list) => {
-                visitor.visit_seq(SeqDeserializer {
-                    iter: list.elements.iter_mut(),
-                })
-            }
+            List(mut list) => visitor.visit_seq(SeqDeserializer {
+                iter: list.elements.iter_mut(),
+            }),
             _ => self.err(ExpectedBool),
         }
     }

@@ -1,5 +1,5 @@
-use std::mem::replace;
 use derivative::Derivative;
+use std::mem::replace;
 
 use crate::parser::Input;
 
@@ -257,6 +257,9 @@ pub enum Expr<'a> {
     Map(Map<'a>),
     Struct(Struct<'a>),
     Integer(Integer),
+    /// String without escapes (zero-copy)
+    Str(&'a str),
+    /// Escaped string
     String(String),
     Decimal(Decimal),
 }

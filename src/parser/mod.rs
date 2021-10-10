@@ -4,6 +4,7 @@ use crate::ast::{
 };
 use crate::parser::util::{comma_list0, comma_list1, one_char};
 use nom::branch::alt;
+use nom::bytes::complete::take_till;
 use nom::character::complete::{alphanumeric1, digit1, multispace0};
 use nom::combinator::{cut, map, map_res, opt};
 use nom::error::context;
@@ -200,6 +201,18 @@ pub fn bool(input: Input) -> IResult<Input, bool> {
     )(input)
 }
 
+fn inner_str(input: Input) -> IResult<Input, Input> {
+    take_till(|c| c == '"' || c == '\\')(input)
+}
+
+fn inner_str_mapped(input: Input) -> IResult<Input, &str> {
+    inner_str.map(|x| *x.fragment()).parse(input)
+}
+
+pub fn unescaped_str(input: Input) -> IResult<Input, &str> {
+    delimited(tag("\""), inner_str_mapped, tag("\""))(input)
+}
+
 fn extension_name(input: Input) -> IResult<Input, Extension> {
     alt((
         tag("unwrap_newtypes").value(Extension::UnwrapNewtypes),
@@ -238,6 +251,7 @@ pub fn expr(input: Input) -> IResult<Input, Expr> {
             map(r#struct, Expr::Struct),
             map(integer, Expr::Integer),
             map(decimal, Expr::Decimal),
+            map(unescaped_str, Expr::Str),
             map(string, Expr::String),
         )),
     )(input)
@@ -363,7 +377,7 @@ mod tests {
 
         let basic_map = Map::new_test(vec![
             (
-                Expr::String("my map key :)".to_owned()),
+                Expr::Str("my map key :)"),
                 Expr::Struct(basic_struct.clone()),
             ),
             (Expr::Struct(basic_struct), Expr::Bool(false)),

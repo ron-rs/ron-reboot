@@ -33,11 +33,7 @@ pub fn ron_err(kind: ErrorKind, start: Input, end: Input) -> Error {
 }
 
 pub fn ron_err_custom(kind: ErrorKind, start: Option<Location>, end: Option<Location>) -> Error {
-    Error {
-        kind,
-        start,
-        end,
-    }
+    Error { kind, start, end }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -90,6 +86,7 @@ impl std::error::Error for Error {}
 pub enum ErrorKind {
     ExpectedBool,
     ExpectedString,
+    ExpectedStrGotEscapes,
     ExpectedList,
 
     ParseError(String),
@@ -104,6 +101,9 @@ impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ErrorKind::ExpectedBool => write!(f, "expected bool"),
+            ErrorKind::ExpectedStrGotEscapes => {
+                write!(f, "expected zero-copy string which doesn't support escapes")
+            }
             ErrorKind::ExpectedString => write!(f, "expected string"),
             ErrorKind::ExpectedList => write!(f, "expected list"),
             ErrorKind::ParseError(e) => write!(f, "parsing error: {}", e),
