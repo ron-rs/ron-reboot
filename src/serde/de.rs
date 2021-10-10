@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{forward_to_deserialize_any, Deserialize, Deserializer};
 
@@ -73,7 +71,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
         }
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {

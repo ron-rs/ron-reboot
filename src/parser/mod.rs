@@ -20,7 +20,7 @@ use std::str::FromStr;
 
 pub type Input<'a> = LocatedSpan<&'a str>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
-pub type IResult<'a, I, O> = nom::IResult<I, O, ErrorTree<Input<'a>>>;
+pub type IResult<'a, O> = nom::IResult<Input<'a>, O, ErrorTree<Input<'a>>>;
 
 mod char_categories;
 mod string;
@@ -30,9 +30,9 @@ pub use self::string::parse_string as string;
 
 pub fn spanned<'a, F: 'a, O>(
     mut inner: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Spanned<O>>
+) -> impl FnMut(Input<'a>) -> IResult<Spanned<O>>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
+    F: FnMut(Input<'a>) -> IResult<O>,
     O: 'a,
 {
     ws(move |input: Input<'a>| {
@@ -44,31 +44,31 @@ where
     })
 }
 
-fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
+fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResult<O>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
+    F: FnMut(Input<'a>) -> IResult<O>,
 {
     delimited(multispace0, inner, multispace0)
 }
 
-fn ident_first_char(input: Input) -> IResult<Input, Input> {
+fn ident_first_char(input: Input) -> IResult<Input> {
     verify(take(1usize), |c: &Input| {
         is_ident_first_char(c.bytes().next().unwrap())
     })(input)
 }
 
-fn ident_inner(input: Input) -> IResult<Input, Input> {
+fn ident_inner(input: Input) -> IResult<Input> {
     ident_first_char
         .precedes(take_while(|c| is_ident_other_char(c as u8)))
         .recognize()
         .parse(input)
 }
 
-pub fn ident(input: Input) -> IResult<Input, Ident> {
+pub fn ident(input: Input) -> IResult<Ident> {
     context("ident", map(ident_inner, Ident::from_input))(input)
 }
 
-pub fn sign(input: Input) -> IResult<Input, Sign> {
+pub fn sign(input: Input) -> IResult<Sign> {
     context(
         "sign",
         alt((
@@ -78,15 +78,15 @@ pub fn sign(input: Input) -> IResult<Input, Sign> {
     )(input)
 }
 
-fn decimal_unsigned(input: Input) -> IResult<Input, u64> {
+fn decimal_unsigned(input: Input) -> IResult<u64> {
     map_res(digit1, |digits: Input| u64::from_str(digits.fragment()))(input)
 }
 
-pub fn unsigned(input: Input) -> IResult<Input, UnsignedInteger> {
+pub fn unsigned(input: Input) -> IResult<UnsignedInteger> {
     map(decimal_unsigned, |number| UnsignedInteger { number })(input)
 }
 
-pub fn signed_integer(input: Input) -> IResult<Input, SignedInteger> {
+pub fn signed_integer(input: Input) -> IResult<SignedInteger> {
     let (input, sign) = sign(input)?;
     // Need to create temp var for borrow checker
     let x = map(decimal_unsigned, |number| SignedInteger {
@@ -97,7 +97,7 @@ pub fn signed_integer(input: Input) -> IResult<Input, SignedInteger> {
     x
 }
 
-pub fn integer(input: Input) -> IResult<Input, Integer> {
+pub fn integer(input: Input) -> IResult<Integer> {
     context(
         "integer",
         alt((
@@ -107,7 +107,7 @@ pub fn integer(input: Input) -> IResult<Input, Integer> {
     )(input)
 }
 
-fn decimal_exp(input: Input) -> IResult<Input, Option<(Option<Sign>, u16)>> {
+fn decimal_exp(input: Input) -> IResult<Option<(Option<Sign>, u16)>> {
     opt(preceded(
         alt((one_char('e'), one_char('E'))),
         pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
@@ -119,7 +119,7 @@ fn decimal_exp(input: Input) -> IResult<Input, Option<(Option<Sign>, u16)>> {
 /// * `+1.23e3`
 /// * `-5.0`
 /// * `1222.00`
-fn decimal_std(input: Input) -> IResult<Input, Decimal> {
+fn decimal_std(input: Input) -> IResult<Decimal> {
     let (input, sign) = opt(sign)(input)?;
     // Need to create temp var for borrow checker
     let x = map(
@@ -135,7 +135,7 @@ fn decimal_std(input: Input) -> IResult<Input, Decimal> {
 }
 
 /// A decimal without a whole part e.g. `.01`
-fn decimal_frac(input: Input) -> IResult<Input, Decimal> {
+fn decimal_frac(input: Input) -> IResult<Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
         preceded(one_char('.'), pair(decimal_unsigned, decimal_exp)),
@@ -145,11 +145,11 @@ fn decimal_frac(input: Input) -> IResult<Input, Decimal> {
     x
 }
 
-fn decimal(input: Input) -> IResult<Input, Decimal> {
+fn decimal(input: Input) -> IResult<Decimal> {
     context("decimal", alt((decimal_std, decimal_frac)))(input)
 }
 
-fn ident_val_pair(input: Input) -> IResult<Input, KeyValue<Ident>> {
+fn ident_val_pair(input: Input) -> IResult<KeyValue<Ident>> {
     let pair = separated_pair(spanned(ident), cut(one_char(':')), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
@@ -158,9 +158,9 @@ fn block<'a, F: 'a, O>(
     start_tag: char,
     inner: F,
     end_tag: char,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O>
+) -> impl FnMut(Input<'a>) -> IResult<O>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
+    F: FnMut(Input<'a>) -> IResult<O>,
 {
     #[allow(unused_parens)]
     delimited(
@@ -170,7 +170,7 @@ where
     )
 }
 
-pub fn r#struct(input: Input) -> IResult<Input, Struct> {
+pub fn r#struct(input: Input) -> IResult<Struct> {
     let ident_struct = opt(spanned(ident));
     let untagged_struct = spanned(block('(', comma_list0(ident_val_pair), ')'));
     // Need to create temp var for borrow checker
@@ -182,19 +182,19 @@ pub fn r#struct(input: Input) -> IResult<Input, Struct> {
     x
 }
 
-fn key_val_pair(input: Input) -> IResult<Input, KeyValue<Expr>> {
+fn key_val_pair(input: Input) -> IResult<KeyValue<Expr>> {
     let pair = separated_pair(spanned(expr), cut(one_char(':')), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
-pub fn rmap(input: Input) -> IResult<Input, Map> {
+pub fn rmap(input: Input) -> IResult<Map> {
     map(
         spanned(block('{', comma_list0(key_val_pair), '}')).context("map"),
         |fields| Map { entries: fields },
     )(input)
 }
 
-pub fn list(input: Input) -> IResult<Input, List> {
+pub fn list(input: Input) -> IResult<List> {
     block(
         '[',
         map(comma_list0(expr), |elements| List { elements }),
@@ -204,7 +204,7 @@ pub fn list(input: Input) -> IResult<Input, List> {
     .parse(input)
 }
 
-pub fn tuple(input: Input) -> IResult<Input, List> {
+pub fn tuple(input: Input) -> IResult<List> {
     block(
         '(',
         map(comma_list0(expr), |elements| List { elements }),
@@ -214,33 +214,29 @@ pub fn tuple(input: Input) -> IResult<Input, List> {
     .parse(input)
 }
 
-pub fn bool(input: Input) -> IResult<Input, bool> {
+pub fn bool(input: Input) -> IResult<bool> {
     context(
         "bool",
         alt((tag("true").value(true), tag("false").value(false))),
     )(input)
 }
 
-fn inner_str(input: Input) -> IResult<Input, Input> {
-    take_till(|c| c == '"' || c == '\\')(input)
+fn inner_str(input: Input) -> IResult<&str> {
+    take_till(|c| c == '"' || c == '\\').map(|x: Input| *x.fragment()).parse(input)
 }
 
-fn inner_str_mapped(input: Input) -> IResult<Input, &str> {
-    inner_str.map(|x| *x.fragment()).parse(input)
+pub fn unescaped_str(input: Input) -> IResult<&str> {
+    delimited(tag("\""), inner_str, tag("\""))(input)
 }
 
-pub fn unescaped_str(input: Input) -> IResult<Input, &str> {
-    delimited(tag("\""), inner_str_mapped, tag("\""))(input)
-}
-
-fn extension_name(input: Input) -> IResult<Input, Extension> {
+fn extension_name(input: Input) -> IResult<Extension> {
     alt((
         tag("unwrap_newtypes").value(Extension::UnwrapNewtypes),
         tag("implicit_some").value(Extension::ImplicitSome),
     ))(input)
 }
 
-fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
+fn attribute_enable(input: Input) -> IResult<Attribute> {
     let start = tag("enable").precedes(ws(tag("(")));
     let end = tag(")");
 
@@ -251,7 +247,7 @@ fn attribute_enable(input: Input) -> IResult<Input, Attribute> {
     )(input)
 }
 
-pub fn attribute(input: Input) -> IResult<Input, Attribute> {
+pub fn attribute(input: Input) -> IResult<Attribute> {
     let start = tag("#").precedes(ws(tag("!"))).precedes(ws(tag("[")));
     let end = tag("]");
 
@@ -260,7 +256,7 @@ pub fn attribute(input: Input) -> IResult<Input, Attribute> {
         .parse(input)
 }
 
-pub fn expr(input: Input) -> IResult<Input, Expr> {
+pub fn expr(input: Input) -> IResult<Expr> {
     context(
         "expression",
         alt((

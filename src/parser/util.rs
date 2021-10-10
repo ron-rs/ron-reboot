@@ -10,7 +10,7 @@ use nom_supreme::error::{BaseErrorKind, ErrorTree, Expectation};
 use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
 
-pub fn one_char(c: char) -> impl Fn(Input) -> IResult<Input, char> {
+pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
     move |input: Input| match input.iter_elements().next().map(|t| {
         let b = t.as_char() == c;
         (&c, b)
@@ -25,18 +25,18 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<Input, char> {
 
 pub fn comma_list0<'a, F: 'a, O: Clone + 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
+    F: FnMut(Input<'a>) -> IResult<O>,
 {
     alt((comma_list1(f), multispace0.value(vec![])))
 }
 
 pub fn comma_list1<'a, F: 'a, O: 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
 where
-    F: FnMut(Input<'a>) -> IResult<Input<'a>, O>,
+    F: FnMut(Input<'a>) -> IResult<O>,
 {
     terminated(
         separated_list1(tag(","), spanned(f)),
