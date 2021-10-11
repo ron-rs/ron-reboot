@@ -11,12 +11,18 @@ use crate::{
 
 #[inline]
 pub fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
-    Err(InputParseErr::Error(ErrorTree::expected(input, expectation)))
+    Err(InputParseErr::Error(ErrorTree::expected(
+        input,
+        expectation,
+    )))
 }
 
 #[inline]
 pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
-    Err(InputParseErr::Error(ErrorTree::expected(input, expectation)))
+    Err(InputParseErr::Error(ErrorTree::expected(
+        input,
+        expectation,
+    )))
 }
 
 pub fn delimited<'a, F, G, H, O, OI1, OI2>(
@@ -109,7 +115,9 @@ where
 {
     move |input: Input| match f(input.clone()) {
         Err(InputParseErr::Error(first)) => match g(input.clone()) {
-            Err(InputParseErr::Error(second)) => Err(InputParseErr::Error(ErrorTree::alt(first, second))),
+            Err(InputParseErr::Error(second)) => {
+                Err(InputParseErr::Error(ErrorTree::alt(first, second)))
+            }
             res => res,
         },
         res => res,
@@ -138,8 +146,12 @@ where
     move |i: Input| match f(i.clone()) {
         Ok(o) => Ok(o),
         Err(InputParseErr::Incomplete(i)) => Err(InputParseErr::Incomplete(i)),
-        Err(InputParseErr::Error(e)) => Err(InputParseErr::Error(InputParseError::add_context(i, context, e))),
-        Err(InputParseErr::Failure(e)) => Err(InputParseErr::Failure(InputParseError::add_context(i, context, e))),
+        Err(InputParseErr::Error(e)) => Err(InputParseErr::Error(InputParseError::add_context(
+            i, context, e,
+        ))),
+        Err(InputParseErr::Failure(e)) => Err(InputParseErr::Failure(
+            InputParseError::add_context(i, context, e),
+        )),
     }
 }
 

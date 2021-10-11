@@ -6,8 +6,8 @@ use std::{
     fmt::{self, Debug, Display, Formatter, Write},
 };
 
-use indent_write::fmt::IndentWriter;
 use crate::parser::InputParseError;
+use indent_write::fmt::IndentWriter;
 
 use crate::util::write_pretty_list;
 

@@ -1,27 +1,33 @@
 use std::mem::replace;
 
-use derivative::Derivative;
 #[cfg(feature = "serde1_ast_derives")]
 use serde::Serialize;
 
 use crate::parser::Input;
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
-#[derive(Clone, Debug, Derivative, Eq)]
-#[derivative(PartialEq)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 #[cfg_attr(feature = "serde1_ast_derives", serde(transparent))]
 pub struct Spanned<'a, T>
 where
     T: 'a,
 {
-    #[derivative(PartialEq = "ignore")]
     #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
     pub start: Input<'a>,
     pub value: T,
-    #[derivative(PartialEq = "ignore")]
     #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
     pub end: Input<'a>,
+}
+
+/// IMPORTANT: Equality operators do NOT compare the start & end spans!
+impl<'a, T> PartialEq for Spanned<'a, T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.value.eq(&other.value)
+    }
 }
 
 impl<'a, T> Spanned<'a, T>
@@ -38,14 +44,14 @@ where
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Ron<'a> {
     pub attributes: Vec<Spanned<'a, Attribute<'a>>>,
     pub expr: Spanned<'a, Expr<'a>>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Attribute<'a> {
     Enable(Spanned<'a, Vec<Spanned<'a, Extension>>>),
@@ -60,14 +66,14 @@ impl<'a> Attribute<'a> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Extension {
     UnwrapNewtypes,
     ImplicitSome,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Ident<'a>(pub &'a str);
 
@@ -77,7 +83,7 @@ impl<'a> Ident<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Sign {
     Positive,
@@ -94,7 +100,7 @@ impl Sign {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct UnsignedInteger {
     pub number: u64,
@@ -111,7 +117,7 @@ impl UnsignedInteger {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct SignedInteger {
     pub sign: Sign,
@@ -130,7 +136,7 @@ impl SignedInteger {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Integer {
     Signed(SignedInteger),
@@ -152,7 +158,7 @@ impl Integer {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Decimal {
     pub sign: Option<Sign>,
@@ -182,7 +188,7 @@ impl Decimal {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct KeyValue<'a, K: 'a> {
     pub key: Spanned<'a, K>,
@@ -201,7 +207,7 @@ impl<'a, K: 'a> KeyValue<'a, K> {
 
 pub type SpannedKvs<'a, K> = Spanned<'a, Vec<Spanned<'a, KeyValue<'a, K>>>>;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Struct<'a> {
     pub ident: Option<Spanned<'a, Ident<'a>>>,
@@ -230,7 +236,7 @@ impl<'a> Struct<'a> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Map<'a> {
     pub entries: SpannedKvs<'a, Expr<'a>>,
@@ -253,7 +259,7 @@ impl<'a> Map<'a> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct List<'a> {
     pub elements: Vec<Spanned<'a, Expr<'a>>>,
@@ -268,7 +274,7 @@ impl<'a> List<'a> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Expr<'a> {
     Unit,

@@ -3,7 +3,7 @@ use crate::parser::{
         alt2, base_err_res, context, cut, delimited, fold_many0, map, map_res, multispace1,
         one_char, one_of_chars, preceded, take_while, take_while_m_n,
     },
-    BaseErrorKind, ErrorTree, Expectation, IResult, Input, InputParseErr
+    BaseErrorKind, ErrorTree, Expectation, IResult, Input, InputParseErr,
 };
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
