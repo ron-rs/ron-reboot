@@ -8,12 +8,26 @@ use std::{
 
 use indent_write::fmt::IndentWriter;
 use nom::{
-    error::{ContextError, ErrorKind as NomErrorKind, FromExternalError, ParseError},
+    error::{ErrorKind as NomErrorKind, FromExternalError, ParseError},
     InputLength,
 };
 use nom_supreme::tag::TagError;
+use crate::parser::InputParseError;
 
 use crate::util::write_pretty_list;
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
+pub enum InputParseErr<'a> {
+    /// There was not enough data
+    Incomplete(()),
+    /// The parser had an error (recoverable)
+    Error(InputParseError<'a>),
+    /// The parser had an unrecoverable error: we got to the right
+    /// branch and we know other branches won't work, so backtrack
+    /// as fast as possible
+    Failure(InputParseError<'a>),
+}
 
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -271,6 +285,7 @@ impl<I: Display> Display for ErrorTree<I> {
 
 impl<I: Display + Debug> Error for ErrorTree<I> {}
 
+/*
 impl<I: InputLength> ParseError<I> for ErrorTree<I> {
     /// Create a new error at the given position. Interpret `kind` as an
     /// [`Expectation`] if possible, to give a more informative error message.
@@ -369,10 +384,11 @@ impl<I: InputLength> ParseError<I> for ErrorTree<I> {
         ErrorTree::Alt(siblings)
     }
 }
+ */
 
-impl<I> ContextError<I> for ErrorTree<I> {
+impl<I> ErrorTree<I> {
     /// Similar to append: Create a new error with some added context
-    fn add_context(location: I, ctx: &'static str, other: Self) -> Self {
+    pub fn add_context(location: I, ctx: &'static str, other: Self) -> Self {
         let context = (location, StackContext::Context(ctx));
 
         match other {

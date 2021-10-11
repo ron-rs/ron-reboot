@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nom::{error::ContextError, Err, Parser};
+use nom::Err;
 
 use crate::{
     ast::Spanned,
@@ -84,7 +84,7 @@ where
 {
     move |input: Input| {
         let i = input.clone();
-        match parser.parse(i) {
+        match parser(i) {
             Ok((i, _)) => {
                 let index = input.offset_to(&i);
                 Ok((i, input.slice(..index)))
@@ -98,7 +98,7 @@ pub fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
 where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
-    move |input: Input| match parser.parse(input) {
+    move |input: Input| match parser(input) {
         Err(Err::Error(e)) => Err(Err::Failure(e)),
         rest => rest,
     }
@@ -124,7 +124,7 @@ where
 {
     move |input: Input| {
         let i = input.clone();
-        match f.parse(input) {
+        match f(input) {
             // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
             Err(Err::Error(_)) => Ok((i, None)),
@@ -137,7 +137,7 @@ pub fn context<'a, F, O>(context: &'static str, mut f: F) -> impl FnMut(Input<'a
 where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
-    move |i: Input| match f.parse(i.clone()) {
+    move |i: Input| match f(i.clone()) {
         Ok(o) => Ok(o),
         Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
         Err(Err::Error(e)) => Err(Err::Error(InputParseError::add_context(i, context, e))),
@@ -153,7 +153,7 @@ where
         let mut acc = Vec::with_capacity(4);
         loop {
             let len = i.len();
-            match f.parse(i.clone()) {
+            match f(i.clone()) {
                 Err(Err::Error(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
@@ -265,7 +265,7 @@ where
         loop {
             let i_ = input.clone();
             let len = input.len();
-            match f.parse(i_) {
+            match f(i_) {
                 Ok((i, o)) => {
                     // infinite loop check: the parser must always consume
                     if i.len() == len {
@@ -314,9 +314,9 @@ pub fn take_if_c_char(
     expectations: &'static [Expectation],
 ) -> impl Fn(Input) -> IResult<char> {
     move |input| {
-        take_if_c(&condition, expectations)
-            .map(|input: Input| input.fragment().chars().next().unwrap())
-            .parse(input)
+        map(take_if_c(&condition, expectations), |input: Input| {
+            input.fragment().chars().next().unwrap()
+        })(input)
     }
 }
 

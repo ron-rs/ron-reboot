@@ -28,7 +28,7 @@ mod string;
 mod util;
 
 pub use self::{
-    error::{BaseErrorKind, ErrorTree, Expectation},
+    error::{BaseErrorKind, ErrorTree, Expectation, InputParseErr},
     input::{LocatedSpan, Location, Offset},
     string::parse_string as string,
 };
