@@ -3,11 +3,10 @@
 
 use std::{
     error::Error,
-    fmt::{self, Debug, Display, Formatter, Write},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 use crate::parser::InputParseError;
-use indent_write::fmt::IndentWriter;
 
 use crate::util::write_pretty_list;
 
@@ -144,8 +143,7 @@ impl Display for BaseErrorKind {
             BaseErrorKind::Expected(expectation) => write!(f, "expected {}", expectation),
             BaseErrorKind::External(ref err) => {
                 writeln!(f, "external error:")?;
-                let mut f = IndentWriter::new("  ", f);
-                write!(f, "{}", err)
+                write!(f, "{}", indent(err))
             }
         }
     }
@@ -259,20 +257,18 @@ impl<I: Display> Display for ErrorTree<I> {
                     writeln!(f, "{} at {:#} because", context, location)
                 })?;
 
-                let mut f = IndentWriter::new("  ", f);
-                write!(f, "{}", base)
+                write!(f, "{}", indent(base))
             }
             ErrorTree::Alt(siblings) => {
                 writeln!(f, "none of these matched:")?;
-                let mut f = IndentWriter::new("  ", f);
                 write!(
                     f,
                     "{}",
-                    siblings
+                    indent(siblings
                         .iter()
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
-                        .join(" or\n")
+                        .join(" or\n"))
                 )
             }
         }
@@ -280,107 +276,6 @@ impl<I: Display> Display for ErrorTree<I> {
 }
 
 impl<I: Display + Debug> Error for ErrorTree<I> {}
-
-/*
-impl<I: InputLength> ParseError<I> for ErrorTree<I> {
-    /// Create a new error at the given position. Interpret `kind` as an
-    /// [`Expectation`] if possible, to give a more informative error message.
-    fn from_error_kind(location: I, kind: NomErrorKind) -> Self {
-        let kind = match kind {
-            NomErrorKind::Alpha => BaseErrorKind::Expected(Expectation::Alpha),
-            NomErrorKind::Digit => BaseErrorKind::Expected(Expectation::Digit),
-            NomErrorKind::HexDigit => BaseErrorKind::Expected(Expectation::HexDigit),
-            NomErrorKind::OctDigit => BaseErrorKind::Expected(Expectation::OctDigit),
-            NomErrorKind::AlphaNumeric => BaseErrorKind::Expected(Expectation::AlphaNumeric),
-            NomErrorKind::Space => BaseErrorKind::Expected(Expectation::Space),
-            NomErrorKind::MultiSpace => BaseErrorKind::Expected(Expectation::Multispace),
-            NomErrorKind::CrLf => BaseErrorKind::Expected(Expectation::CrLf),
-
-            // Problem: ErrorKind::Eof is used interchangeably by various nom
-            // parsers to mean either "expected Eof" or "expected NOT eof". See
-            // https://github.com/Geal/nom/issues/1259. For now, we examine the
-            // input string to guess what the likely intention is.
-            NomErrorKind::Eof => match location.input_len() {
-                // The input is at Eof, which means that this refers to an
-                // *unexpected* eof.
-                0 => BaseErrorKind::Expected(Expectation::Something),
-
-                // The input is *not* at eof, which means that this refers to
-                // an *expected* eof.
-                _ => BaseErrorKind::Expected(Expectation::Eof),
-            },
-            kind => BaseErrorKind::Kind(kind),
-        };
-
-        ErrorTree::Base { location, kind }
-    }
-
-    /// Combine an existing error with a new one. This is how error context is
-    /// accumulated when backtracing. "other" is the original error, and the
-    /// inputs new error from higher in the call stack.
-    ///
-    /// If `other` is already an `ErrorTree::Stack`, the context is added to
-    /// the stack; otherwise, a new stack is created, with `other` at the root.
-    fn append(location: I, kind: NomErrorKind, other: Self) -> Self {
-        let context = (location, StackContext::Kind(kind));
-
-        match other {
-            // Don't create a stack of [ErrorKind::Alt, ErrorTree::Alt(..)]
-            alt @ ErrorTree::Alt(..) if kind == NomErrorKind::Alt => alt,
-
-            // This is already a stack, so push on to it
-            ErrorTree::Stack { mut contexts, base } => {
-                contexts.push(context);
-                ErrorTree::Stack { base, contexts }
-            }
-
-            // This isn't a stack; create a new stack
-            base => ErrorTree::Stack {
-                base: Box::new(base),
-                contexts: vec![context],
-            },
-        }
-    }
-
-    /// Create an error indicating an expected character at a given position
-    fn from_char(location: I, character: char) -> Self {
-        ErrorTree::Base {
-            location,
-            kind: BaseErrorKind::Expected(Expectation::Char(character)),
-        }
-    }
-
-    /// Combine two errors from branches of alt. If either or both errors are
-    /// already [`ErrorTree::Alt`], the different error sets are merged;
-    /// otherwise, a new [`ErrorTree::Alt`] is created, containing both
-    /// `self` and `other`.
-    fn or(self, other: Self) -> Self {
-        // For now we assume that there's no need to try and preserve
-        // left-to-right ordering of alternatives.
-        let siblings = match (self, other) {
-            (ErrorTree::Alt(mut siblings1), ErrorTree::Alt(mut siblings2)) => {
-                match siblings1.capacity() >= siblings2.capacity() {
-                    true => {
-                        siblings1.extend(siblings2);
-                        siblings1
-                    }
-                    false => {
-                        siblings2.extend(siblings1);
-                        siblings2
-                    }
-                }
-            }
-            (ErrorTree::Alt(mut siblings), err) | (err, ErrorTree::Alt(mut siblings)) => {
-                siblings.push(err);
-                siblings
-            }
-            (err1, err2) => vec![err1, err2],
-        };
-
-        ErrorTree::Alt(siblings)
-    }
-}
- */
 
 impl<I> ErrorTree<I> {
     /// Similar to append: Create a new error with some added context
@@ -399,6 +294,54 @@ impl<I> ErrorTree<I> {
                 base: Box::new(base),
                 contexts: vec![context],
             },
+        }
+    }
+}
+
+pub struct Indented(String);
+
+pub fn indent(display: impl Display) -> Indented {
+    Indented(display.to_string())
+}
+
+impl Display for Indented {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut s = self.0.as_str();
+        let mut need_indent = false;
+        loop {
+            match need_indent {
+                // We don't need an indent. Scan for the end of the line
+                false => match s.as_bytes().iter().position(|&b| b == b'\n') {
+                    // No end of line in the input; write the entire string
+                    None => break  f.write_str(s),
+
+                    // We can see the end of the line. Write up to and including
+                    // that newline, then request an indent
+                    Some(len) => {
+                        let (head, tail) = s.split_at(len + 1);
+                         f.write_str(head)?;
+                        need_indent = true;
+                        s = tail;
+                    }
+                },
+                // We need an indent. Scan for the beginning of the next
+                // non-empty line.
+                true => match s.as_bytes().iter().position(|&b| b != b'\n') {
+                    // No non-empty lines in input, write the entire string
+                    None => break  f.write_str(s),
+
+                    // We can see the next non-empty line. Write up to the
+                    // beginning of that line, then insert an indent, then
+                    // continue.
+                    Some(len) => {
+                        let (head, tail) = s.split_at(len);
+                         f.write_str(head)?;
+                         f.write_str("    ")?;
+                        need_indent = false;
+                        s = tail;
+                    }
+                },
+            }
         }
     }
 }
