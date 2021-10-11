@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nom::{error::ContextError, Err, InputIter, InputTake, Offset, Parser, Slice};
+use nom::{error::ContextError, Err, Parser};
 
 use crate::{
     ast::Spanned,
@@ -174,6 +174,10 @@ pub fn multispace0(input: Input) -> IResult<Input> {
     take_while(is_ws)(input)
 }
 
+pub fn multispace1(input: Input) -> IResult<Input> {
+    take_while1(is_ws, Expectation::Multispace)(input)
+}
+
 pub fn map<'a, O, O2>(
     mut parser: impl FnMut(Input<'a>) -> IResult<'a, O>,
     map: impl Fn(O) -> O2 + Clone,
@@ -196,19 +200,44 @@ pub fn map_res<'a, O, O2>(
 
 pub fn take_while1<'a>(
     condition: impl Fn(char) -> bool + Clone,
-    expectations: &'static [Expectation],
+    expectation: Expectation,
 ) -> impl FnMut(Input<'a>) -> IResult<Input<'a>> {
     map_res(take_while(condition), move |m: Input| match m.is_empty() {
-        true => base_err_res(m, Expectation::OneOfExpectations(expectations)),
+        true => base_err_res(m, expectation),
         false => Ok(m),
     })
 }
 
-pub fn take_while_m_n(
-    condition: impl Fn(char) -> bool + Clone,
+pub fn take_while_m_n<'a>(
     m: usize,
-    n: usize
-) -> impl Clone + Fn(Input) -> IResult<Input> {
+    n: usize,
+    condition: impl Fn(char) -> bool + Clone,
+    expectation: Expectation,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>> {
+    assert!(m <= n);
+
+    let mut counter = 0;
+
+    map_res(
+        take_while(move |c| {
+            if dbg!(counter) == n {
+                false
+            } else {
+                counter += 1;
+                condition(c)
+            }
+        }),
+        move |input: Input| {
+            if input.len() < m {
+                base_err_res(input.slice(input.len()..), expectation)
+            } else {
+                Ok(input)
+            }
+        },
+    )
+}
+
+pub fn take_while(mut condition: impl FnMut(char) -> bool) -> impl FnMut(Input) -> IResult<Input> {
     move |input: Input| match input
         .char_indices()
         .skip_while(|(_ind, c)| condition(*c))
@@ -219,16 +248,42 @@ pub fn take_while_m_n(
     }
 }
 
-pub fn take_while(
-    condition: impl Fn(char) -> bool + Clone,
-) -> impl Clone + Fn(Input) -> IResult<Input> {
-    move |input: Input| match input
-        .char_indices()
-        .skip_while(|(_ind, c)| condition(*c))
-        .next()
-    {
-        Some((ind, _)) => Ok(input.take_split(ind)),
-        None => Ok(input.take_split(input.len())),
+pub fn fold_many0<'a, O, F, G, H, R>(
+    mut f: F,
+    mut init: H,
+    mut g: G,
+) -> impl FnMut(Input<'a>) -> IResult<R>
+where
+    F: FnMut(Input<'a>) -> IResult<O>,
+    G: FnMut(R, O) -> R,
+    H: FnMut() -> R,
+{
+    move |i: Input| {
+        let mut res = init();
+        let mut input = i;
+
+        loop {
+            let i_ = input.clone();
+            let len = input.len();
+            match f.parse(i_) {
+                Ok((i, o)) => {
+                    // infinite loop check: the parser must always consume
+                    if i.len() == len {
+                        todo!()
+                        //return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
+                    }
+
+                    res = g(res, o);
+                    input = i;
+                }
+                Err(Err::Error(_)) => {
+                    return Ok((input, res));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
     }
 }
 
@@ -420,6 +475,75 @@ mod tests {
                 .1
                 .len(),
             1
+        );
+    }
+
+    #[test]
+    fn test_take_while_m_n_limits() {
+        assert_eq!(
+            eval!(take_while_m_n(0, 3, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            3
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(0, 0, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            0
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(0, 1, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            1
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(2, 4, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            4
+        );
+    }
+
+    #[test]
+    fn test_take_while_m_n_checks() {
+        assert_eq!(
+            eval!(take_while_m_n(0, 5, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            4
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(4, 4, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            4
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(0, 5, |_c| false, Expectation::Alpha), "ababcabab").len(),
+            0
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(0, 1, |_c| false, Expectation::Alpha), "ababcabab").len(),
+            0
+        );
+
+        assert_eq!(
+            eval!(take_while_m_n(1, 4, |c| c == 'a', Expectation::Alpha), "ababcabab").len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_take_while_m_n_requires() {
+        assert_eq!(
+            eval!(take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            4
+        );
+
+        assert!(
+            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "ab").is_err()
+        );
+        assert!(
+            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "").is_err()
+        );
+        assert!(
+            eval!(@result take_while_m_n(1, 1, |c| c == 'a' || c == 'b', Expectation::Alpha), "").is_err()
         );
     }
 }

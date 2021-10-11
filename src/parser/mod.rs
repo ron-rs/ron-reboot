@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use crate::parser::input::position;
 use crate::{
     ast::{
         Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
@@ -8,6 +7,7 @@ use crate::{
     },
     parser::{
         char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
+        input::position,
         util::{
             alt2, comma_list0, comma_list1, context, cut, delimited, many0, map, map_res,
             multispace0, one_char, one_of_chars, one_of_tags, opt, pair, preceded, recognize, tag,

@@ -9,8 +9,9 @@ macro_rules! eval {
     };
 }
 
-use crate::parser::{Input, InputParseError};
 pub(crate) use eval;
+
+use crate::parser::{Input, InputParseError};
 
 pub fn unwrap_pr1<T>(r: Result<(Input, T), nom::Err<InputParseError>>) -> T {
     match r {

@@ -1,7 +1,9 @@
-use crate::parser::util::take_while;
+use std::{
+    fmt::{Display, Formatter},
+    slice::SliceIndex,
+};
+
 use crate::parser::{IResult, Input};
-use std::fmt::{Display, Formatter};
-use std::slice::SliceIndex;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Offset {
@@ -29,7 +31,10 @@ impl<'a> From<Input<'a>> for Location {
     fn from(i: Input<'a>) -> Self {
         match i.offset {
             Offset::Absolute(offset) => {
-                assert!(i.input.is_char_boundary(offset), "offset not at char boundary");
+                assert!(
+                    i.input.is_char_boundary(offset),
+                    "offset not at char boundary"
+                );
 
                 let line = i
                     .input
@@ -39,29 +44,25 @@ impl<'a> From<Input<'a>> for Location {
                     .count()
                     + 1;
 
-                let (byte_ind, char_ind, c) = i
-                    .char_indices()
-                    .enumerate()
-                    .map(|(c_ind, (b_ind, c))| (b_ind, c_ind, c))
-                    // we now have an iterator of (byte index, char index, char)
-                    .take_while(|(i, _, _)| *i <= offset)
-                    .last()
-                    .unwrap_or((0, 0, '�'));
+                let (byte_ind, char_ind, _c) = get_char_at_offset(i.input, offset);
 
-                assert_eq!(byte_ind, offset, "offset not at char boundary");
+                if byte_ind != offset {
+                    println!("Input {:?}", i);
+                    assert_eq!(byte_ind, offset, "offset not at char boundary");
+                }
 
                 let line_start = i
                     .input
                     .char_indices()
                     .take(char_ind)
                     .filter(|(_, c)| *c == '\n')
-                    .map(|(i, c)| i)
+                    .map(|(i, _c)| i)
                     .last()
                     .unwrap_or(0);
 
                 Location {
                     line: line as u32,
-                    column: (char_ind - line_start) as u32,
+                    column: (char_ind - line_start + 1) as u32,
                 }
             }
             Offset::Relative(_) => todo!(),
@@ -111,7 +112,7 @@ impl<'a> LocatedSpan<'a> {
         str_offset(self.fragment, other.fragment)
     }
 
-    pub fn fragment(&self) -> &str {
+    pub fn fragment(&self) -> &'a str {
         self.fragment
     }
 
@@ -147,8 +148,32 @@ impl<'a> LocatedSpan<'a> {
     }
 }
 
+impl<'a> Display for LocatedSpan<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "at {} (`{}`)",
+            Location::from(self.clone()),
+            self.fragment.get(..1).unwrap_or("eof"),
+        )
+    }
+}
+
 pub fn position(input: Input) -> IResult<Input> {
     Ok(input.take_split(0))
+}
+
+/// returns (byte index, char index, char)
+#[inline]
+fn get_char_at_offset(input: &str, offset: usize) -> (usize, usize, char) {
+    input
+        .char_indices()
+        .enumerate()
+        .map(|(c_ind, (b_ind, c))| (b_ind, c_ind, c))
+        // we now have an iterator of (byte index, char index, char)
+        .skip_while(|(i, _, _)| *i < offset)
+        .next()
+        .unwrap_or((input.len(), input.chars().count(), '�'))
 }
 
 /// Byte offset between string slices
@@ -157,4 +182,29 @@ fn str_offset(first: &str, second: &str) -> usize {
     let second = second.as_ptr();
 
     second as usize - first as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::input::get_char_at_offset;
+
+    #[test]
+    fn test_char_offset_basic() {
+        assert_eq!(get_char_at_offset("123", 1), (1, 1, '2'));
+    }
+
+    #[test]
+    fn test_char_offset_start() {
+        assert_eq!(get_char_at_offset("123", 0), (0, 0, '1'));
+    }
+
+    #[test]
+    fn test_char_offset_end() {
+        assert_eq!(get_char_at_offset("123", 2), (2, 2, '3'));
+    }
+
+    #[test]
+    fn test_char_offset_eof() {
+        assert_eq!(get_char_at_offset("123", 3), (3, 3, '�'));
+    }
 }

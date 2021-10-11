@@ -11,9 +11,7 @@ pub struct ErrorTreeFmt(ErrorTree<String>);
 
 impl ErrorTreeFmt {
     pub fn new(e: ErrorTree<Input<'_>>) -> Self {
-        ErrorTreeFmt(e.map_locations(|input| {
-            format!("{}", Location::from(input))
-        }))
+        ErrorTreeFmt(e.map_locations(|input| format!("{}", Location::from(input))))
     }
 }
 

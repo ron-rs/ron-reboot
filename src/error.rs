@@ -1,9 +1,8 @@
 use std::fmt::{Display, Formatter};
 
-use crate::parser::Location;
 use crate::{
     error_fmt::ErrorTreeFmt,
-    parser::{Input, InputParseError},
+    parser::{Input, InputParseError, Location},
 };
 
 pub fn ron_err(kind: ErrorKind, start: Input, end: Input) -> Error {

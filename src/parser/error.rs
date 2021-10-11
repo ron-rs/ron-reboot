@@ -45,6 +45,9 @@ pub enum Expectation {
     /// A hexadecimal digit (`[0-9a-fA-F]`) was expected.
     HexDigit,
 
+    /// A hexadecimal digit (`[0-9a-fA-F]`) was expected.
+    UnicodeHexSequence { got: u32 },
+
     /// An octal digit (`[0-7]`) was expected.
     OctDigit,
 
@@ -92,6 +95,9 @@ impl Display for Expectation {
             Expectation::Eof => write!(f, "eof"),
             Expectation::CrLf => write!(f, "CRLF"),
             Expectation::Something => write!(f, "not eof"),
+            Expectation::UnicodeHexSequence { got } => {
+                write!(f, "a valid unicode hex sequence (got 0x{:X})", got)
+            }
         }
     }
 }
