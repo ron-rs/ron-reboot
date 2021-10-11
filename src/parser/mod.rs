@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use nom::{
-    branch::alt,
     sequence::{delimited, pair, preceded, separated_pair},
     Parser,
 };
@@ -16,8 +15,8 @@ use crate::{
     parser::{
         char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
         util::{
-            comma_list0, comma_list1, context, cut, many0, map, map_res, multispace0, one_char,
-            one_of_chars, one_of_tags, opt, recognize, tag, take_if_c, take_while,
+            alt2, comma_list0, comma_list1, context, cut, many0, map, map_res, multispace0,
+            one_char, one_of_chars, one_of_tags, opt, recognize, tag, take_if_c, take_while,
         },
     },
 };
@@ -123,16 +122,16 @@ pub fn signed_integer(input: Input) -> IResult<SignedInteger> {
 pub fn integer(input: Input) -> IResult<Integer> {
     context(
         "integer",
-        alt((
+        alt2(
             map(unsigned, Integer::Unsigned),
             map(signed_integer, Integer::Signed),
-        )),
+        ),
     )(input)
 }
 
 fn decimal_exp(input: Input) -> IResult<Option<(Option<Sign>, u16)>> {
     opt(preceded(
-        alt((one_char('e'), one_char('E'))),
+        one_of_chars("eE", &[(), ()]),
         pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
     ))(input)
 }
@@ -169,7 +168,7 @@ fn decimal_frac(input: Input) -> IResult<Decimal> {
 }
 
 fn decimal(input: Input) -> IResult<Decimal> {
-    context("decimal", alt((decimal_std, decimal_frac)))(input)
+    context("decimal", alt2(decimal_std, decimal_frac))(input)
 }
 
 fn ident_val_pair(input: Input) -> IResult<KeyValue<Ident>> {
@@ -280,8 +279,16 @@ pub fn attribute(input: Input) -> IResult<Attribute> {
         .parse(input)
 }
 
+macro_rules! alt {
+    ($p1:expr) => { $p1 };
+    ($p1:expr, $p2:expr) => { alt2($p1, $p2) };
+    ($p1:expr, $p2:expr, $($p:expr),+) => {
+        alt!(alt2($p1, $p2), alt!($($p),*))
+    };
+}
+
 fn expr_inner(input: Input) -> IResult<Expr> {
-    alt((
+    alt!(
         map(bool, Expr::Bool),
         map(tuple, Expr::Tuple),
         map(list, Expr::List),
@@ -290,8 +297,8 @@ fn expr_inner(input: Input) -> IResult<Expr> {
         map(integer, Expr::Integer),
         map(decimal, Expr::Decimal),
         map(unescaped_str, Expr::Str),
-        map(string, Expr::String),
-    ))(input)
+        map(string, Expr::String)
+    )(input)
 }
 
 pub fn expr(input: Input) -> IResult<Expr> {

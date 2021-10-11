@@ -60,6 +60,20 @@ where
     }
 }
 
+pub fn alt2<'a, F, G, O>(mut f: F, mut g: G) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+where
+    F: FnMut(Input<'a>) -> IResult<'a, O>,
+    G: FnMut(Input<'a>) -> IResult<'a, O>,
+{
+    move |input: Input| match f(input.clone()) {
+        Err(Err::Error(first)) => match g(input.clone()) {
+            Err(Err::Error(second)) => Err(Err::Error(ErrorTree::alt(first, second))),
+            res => res,
+        },
+        res => res,
+    }
+}
+
 pub fn opt<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, Option<O>>
 where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
@@ -67,6 +81,7 @@ where
     move |input: Input| {
         let i = input.clone();
         match f.parse(input) {
+            // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
             Err(Err::Error(_)) => Ok((i, None)),
             Err(e) => Err(e),

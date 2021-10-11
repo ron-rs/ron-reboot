@@ -185,6 +185,21 @@ pub enum ErrorTree<I> {
 }
 
 impl<I> ErrorTree<I> {
+    pub fn alt(first: Self, second: Self) -> Self {
+        match (first, second) {
+            (ErrorTree::Alt(mut alt), ErrorTree::Alt(alt2)) => {
+                alt.extend(alt2);
+                ErrorTree::Alt(alt)
+            }
+            (ErrorTree::Alt(mut alt), x) | (x, ErrorTree::Alt(mut alt)) => {
+                // TODO: should we preserve order?
+                alt.push(x);
+                ErrorTree::Alt(alt)
+            }
+            (first, second) => ErrorTree::Alt(vec![first, second]),
+        }
+    }
+
     fn map_locations_ref<T>(self, convert_location: &mut impl FnMut(I) -> T) -> ErrorTree<T> {
         match self {
             ErrorTree::Base { location, kind } => ErrorTree::Base {
