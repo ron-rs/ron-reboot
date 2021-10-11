@@ -3,8 +3,8 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use ron_reboot::serde::from_str;
-use serde::Deserialize;
 use ron_reboot::test_util::unwrap_display;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct MyStruct {

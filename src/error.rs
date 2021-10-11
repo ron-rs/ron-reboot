@@ -1,31 +1,10 @@
 use std::fmt::{Display, Formatter};
 
+use crate::parser::Location;
 use crate::{
     error_fmt::ErrorTreeFmt,
     parser::{Input, InputParseError},
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Location {
-    pub line: u32,
-    /// UTF-8 column
-    pub column: u32,
-}
-
-impl<'a> From<Input<'a>> for Location {
-    fn from(i: Input<'a>) -> Self {
-        Location {
-            line: i.location_line(),
-            column: i.get_utf8_column() as u32,
-        }
-    }
-}
-
-impl Display for Location {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
-    }
-}
 
 pub fn ron_err(kind: ErrorKind, start: Input, end: Input) -> Error {
     Error {

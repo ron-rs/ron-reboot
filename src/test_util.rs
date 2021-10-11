@@ -9,8 +9,8 @@ macro_rules! eval {
     };
 }
 
-pub(crate) use eval;
 use crate::parser::{Input, InputParseError};
+pub(crate) use eval;
 
 pub fn unwrap_pr1<T>(r: Result<(Input, T), nom::Err<InputParseError>>) -> T {
     match r {
@@ -27,6 +27,6 @@ pub fn unwrap_pr1<T>(r: Result<(Input, T), nom::Err<InputParseError>>) -> T {
 pub fn unwrap_display<T>(r: Result<T, crate::error::Error>) -> T {
     match r {
         Ok(the_value) => the_value,
-        Err(r) => panic!("{}", r)
+        Err(r) => panic!("{}", r),
     }
 }

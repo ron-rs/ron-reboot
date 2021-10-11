@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use nom_locate::{position, LocatedSpan};
-
+use crate::parser::input::position;
 use crate::{
     ast::{
         Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
@@ -17,18 +16,20 @@ use crate::{
     },
 };
 
-pub type Input<'a> = LocatedSpan<&'a str>;
+pub type Input<'a> = LocatedSpan<'a>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 pub type IResult<'a, O> = nom::IResult<Input<'a>, O, ErrorTree<Input<'a>>>;
 pub type OutputResult<'a, O> = Result<O, nom::Err<InputParseError<'a>>>;
 
 mod char_categories;
 mod error;
+mod input;
 mod string;
 mod util;
 
 pub use self::{
     error::{BaseErrorKind, ErrorTree, Expectation},
+    input::{LocatedSpan, Location, Offset},
     string::parse_string as string,
 };
 
@@ -206,7 +207,10 @@ fn key_val_pair(input: Input) -> IResult<KeyValue<Expr>> {
 
 pub fn rmap(input: Input) -> IResult<Map> {
     map(
-        context("map", spanned(block('{', ws(comma_list0(key_val_pair)), '}'))),
+        context(
+            "map",
+            spanned(block('{', ws(comma_list0(key_val_pair)), '}')),
+        ),
         |fields| Map { entries: fields },
     )(input)
 }
@@ -239,7 +243,7 @@ pub fn bool(input: Input) -> IResult<bool> {
 
 fn inner_str(input: Input) -> IResult<&str> {
     map(take_while(|c| c != '"' && c != '\\'), |x: Input| {
-        *x.fragment()
+        x.fragment()
     })(input)
 }
 

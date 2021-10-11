@@ -4,7 +4,7 @@ use std::{
     fmt::{Debug, Display, Formatter},
 };
 
-use crate::parser::{ErrorTree, Input};
+use crate::parser::{ErrorTree, Input, Location};
 
 #[derive(Debug)]
 pub struct ErrorTreeFmt(ErrorTree<String>);
@@ -12,7 +12,7 @@ pub struct ErrorTreeFmt(ErrorTree<String>);
 impl ErrorTreeFmt {
     pub fn new(e: ErrorTree<Input<'_>>) -> Self {
         ErrorTreeFmt(e.map_locations(|input| {
-            format!("{}:{}", input.location_line(), input.get_utf8_column())
+            format!("{}", Location::from(input))
         }))
     }
 }

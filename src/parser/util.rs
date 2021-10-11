@@ -86,7 +86,7 @@ where
         let i = input.clone();
         match parser.parse(i) {
             Ok((i, _)) => {
-                let index = input.offset(&i);
+                let index = input.offset_to(&i);
                 Ok((i, input.slice(..index)))
             }
             Err(e) => Err(e),
@@ -204,6 +204,21 @@ pub fn take_while1<'a>(
     })
 }
 
+pub fn take_while_m_n(
+    condition: impl Fn(char) -> bool + Clone,
+    m: usize,
+    n: usize
+) -> impl Clone + Fn(Input) -> IResult<Input> {
+    move |input: Input| match input
+        .char_indices()
+        .skip_while(|(_ind, c)| condition(*c))
+        .next()
+    {
+        Some((ind, _)) => Ok(input.take_split(ind)),
+        None => Ok(input.take_split(input.len())),
+    }
+}
+
 pub fn take_while(
     condition: impl Fn(char) -> bool + Clone,
 ) -> impl Clone + Fn(Input) -> IResult<Input> {
@@ -220,7 +235,7 @@ pub fn take_while(
 pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResult<Input> {
     let tag_len = tag.len();
 
-    move |input: Input| match input.starts_with(tag) {
+    move |input: Input| match input.fragment().starts_with(tag) {
         true => Ok(input.take_split(tag_len)),
         false => base_err(input, Expectation::Tag(tag)),
     }
@@ -230,7 +245,7 @@ pub fn take_if_c(
     condition: impl Fn(char) -> bool,
     expectations: &'static [Expectation],
 ) -> impl Fn(Input) -> IResult<Input> {
-    move |input: Input| match input.iter_elements().next().map(|t| (t, condition(t))) {
+    move |input: Input| match input.chars().next().map(|t| (t, condition(t))) {
         Some((c, true)) => Ok((input.slice(c.len_utf8()..), input.slice(1..))),
         _ => Err(nom::Err::Error(ErrorTree::Base {
             location: input,
@@ -251,7 +266,7 @@ pub fn take_if_c_char(
 }
 
 pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
-    move |input: Input| match input.iter_elements().next().map(|t| {
+    move |input: Input| match input.chars().next().map(|t| {
         let b = t == c;
         (&c, b)
     }) {
@@ -267,7 +282,7 @@ pub fn one_of_chars<O: Clone>(
     one_of: &'static str,
     mapping: &'static [O],
 ) -> impl Fn(Input) -> IResult<O> {
-    move |input: Input| match input.iter_elements().next().map(|t| {
+    move |input: Input| match input.chars().next().map(|t| {
         let b = one_of.chars().position(|c| c == t);
         (t, b)
     }) {
@@ -286,7 +301,7 @@ pub fn one_of_tags<O: Clone>(
     move |input: Input| match one_of
         .iter()
         .enumerate()
-        .find(|(_, &t)| input.starts_with(t))
+        .find(|(_, &t)| input.fragment().starts_with(t))
     {
         Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
         _ => Err(nom::Err::Error(ErrorTree::Base {
