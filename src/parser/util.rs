@@ -481,22 +481,38 @@ mod tests {
     #[test]
     fn test_take_while_m_n_limits() {
         assert_eq!(
-            eval!(take_while_m_n(0, 3, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 3, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             3
         );
 
         assert_eq!(
-            eval!(take_while_m_n(0, 0, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 0, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             0
         );
 
         assert_eq!(
-            eval!(take_while_m_n(0, 1, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 1, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             1
         );
 
         assert_eq!(
-            eval!(take_while_m_n(2, 4, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(2, 4, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             4
         );
     }
@@ -504,27 +520,47 @@ mod tests {
     #[test]
     fn test_take_while_m_n_checks() {
         assert_eq!(
-            eval!(take_while_m_n(0, 5, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 5, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             4
         );
 
         assert_eq!(
-            eval!(take_while_m_n(4, 4, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(4, 4, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             4
         );
 
         assert_eq!(
-            eval!(take_while_m_n(0, 5, |_c| false, Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 5, |_c| false, Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             0
         );
 
         assert_eq!(
-            eval!(take_while_m_n(0, 1, |_c| false, Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(0, 1, |_c| false, Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             0
         );
 
         assert_eq!(
-            eval!(take_while_m_n(1, 4, |c| c == 'a', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(1, 4, |c| c == 'a', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             1
         );
     }
@@ -532,18 +568,25 @@ mod tests {
     #[test]
     fn test_take_while_m_n_requires() {
         assert_eq!(
-            eval!(take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "ababcabab").len(),
+            eval!(
+                take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha),
+                "ababcabab"
+            )
+            .len(),
             4
         );
 
         assert!(
-            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "ab").is_err()
+            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "ab")
+                .is_err()
         );
         assert!(
-            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "").is_err()
+            eval!(@result take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha), "")
+                .is_err()
         );
         assert!(
-            eval!(@result take_while_m_n(1, 1, |c| c == 'a' || c == 'b', Expectation::Alpha), "").is_err()
+            eval!(@result take_while_m_n(1, 1, |c| c == 'a' || c == 'b', Expectation::Alpha), "")
+                .is_err()
         );
     }
 }

@@ -1,8 +1,8 @@
-use crate::parser::util::{
-    alt2, base_err_res, context, cut, fold_many0, map, multispace1, one_char,
-};
 use crate::parser::{
-    util::{delimited, map_res, one_of_chars, preceded, take_while, take_while_m_n},
+    util::{
+        alt2, base_err_res, context, cut, delimited, fold_many0, map, map_res, multispace1,
+        one_char, one_of_chars, preceded, take_while, take_while_m_n,
+    },
     BaseErrorKind, ErrorTree, Expectation, IResult, Input,
 };
 
