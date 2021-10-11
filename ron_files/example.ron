@@ -1,5 +1,5 @@
-(
-    what: true,
-    is: "this",
-    hello: !
+Example(
+    xyz: Asdf(
+        x: 4, y: !
+    ),
 )

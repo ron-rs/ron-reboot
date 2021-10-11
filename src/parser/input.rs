@@ -146,7 +146,7 @@ impl<'a> Display for Input<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "at {} (`{}`)",
+            "{} (`{}`)",
             Location::from(*self),
             self.fragment.get(..1).unwrap_or("eof"),
         )

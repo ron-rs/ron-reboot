@@ -1,7 +1,69 @@
+use serde::Deserialize;
+
 use crate::{
     error::{Error, ErrorKind::*},
     serde::from_str,
 };
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct MyStruct {
+    x: bool,
+    y: String,
+}
+
+#[test]
+fn structs() {
+    assert_eq!(
+        from_str(
+            r#"
+ (x: true, y:"false") "#
+        ),
+        Ok(MyStruct {
+            x: true,
+            y: "false".to_string()
+        })
+    );
+    assert_eq!(
+        from_str(r#" MyStruct(x:false,y:"true") "#),
+        Ok(MyStruct {
+            x: false,
+            y: "true".to_string()
+        })
+    );
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct MyNestedStruct {
+    foo: MyStruct,
+    //bar: bool,
+}
+
+#[test]
+fn structs_nested() {
+    assert_eq!(
+        from_str(
+            r#"
+ (foo: (x: false, y: "abc")) "#
+        ),
+        Ok(MyNestedStruct {
+            foo: MyStruct {
+                x: false,
+                y: "abc".to_string()
+            },
+            //bar: false
+        })
+    );
+}
+
+/*
+fn struct_fail() {
+    let input = r#"Example(xyz: Asdf(
+        x: 4, y: !
+    ),
+)"#;
+}
+
+ */
 
 #[test]
 fn bools() {

@@ -119,10 +119,10 @@ pub fn integer(input: Input) -> IResultLookahead<crate::ast::Integer> {
 }
 
 fn decimal_exp(input: Input) -> IResultLookahead<Option<(Option<Sign>, u16)>> {
-    opt(preceded(
+    opt(lookahead(preceded(
         one_of_chars("eE", &[(), ()]),
-        pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
-    ))(input)
+        pair(opt(lookahead(sign)), map(decimal_unsigned, |n| n as u16)),
+    )))(input)
 }
 
 /// e.g.
@@ -131,7 +131,7 @@ fn decimal_exp(input: Input) -> IResultLookahead<Option<(Option<Sign>, u16)>> {
 /// * `-5.0`
 /// * `1222.00`
 fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
-    let (input, sign) = opt(sign)(input)?;
+    let (input, sign) = opt(lookahead(sign))(input)?;
     // Need to create temp var for borrow checker
     let x = map(
         pair(
@@ -164,7 +164,7 @@ fn decimal(input: Input) -> IResultLookahead<Decimal> {
 
 fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
     let pair = pair(
-        terminated(spanned(ident), cut(one_char(':'))),
+        cut(terminated(spanned(ident), cut(one_char(':')))),
         spanned(expr),
     );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
@@ -186,12 +186,15 @@ where
     )
 }
 
+fn opt_ident(input: Input) -> IResultLookahead<Option<Spanned<Ident>>> {
+    opt(spanned(lookahead(ident)))(input)
+}
+
 pub fn r#struct(input: Input) -> IResultLookahead<Struct> {
-    let ident_struct = opt(spanned(ident));
-    let untagged_struct = spanned(block('(', ws(comma_list0(ident_val_pair)), ')'));
+    let untagged_struct = spanned(block('(', ws(comma_list1(ident_val_pair)), ')'));
     // Need to create temp var for borrow checker
     let x = map(
-        context("struct", pair(ident_struct, untagged_struct)),
+        context("struct", pair(opt_ident, untagged_struct)),
         |(ident, fields)| Struct { fields, ident },
     )(input);
 
@@ -218,7 +221,7 @@ pub fn list(input: Input) -> IResultLookahead<List> {
         "list",
         block(
             '[',
-            map(ws(comma_list0(expr)), |elements| List { elements }),
+            map(ws(comma_list0(lookahead(expr))), |elements| List { elements }),
             ']',
         ),
     )(input)
@@ -335,11 +338,12 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     let (_, expr_class): (Input, ExprClass) = ExprClass::parse(input)?;
 
     match expr_class {
-        ExprClass::StructTuple => alt2(map(r#struct, Expr::Struct), map(tuple, Expr::Tuple))(input),
+        ExprClass::StructTuple => cut(alt2(map(r#struct, Expr::Struct), map(tuple, Expr::Tuple)))(input),
         ExprClass::Map => map(rmap, Expr::Map)(input),
-        ExprClass::StrString => {
-            alt2(map(lookahead(unescaped_str), Expr::Str), map(string, Expr::String))(input)
-        }
+        ExprClass::StrString => alt2(
+            map(lookahead(unescaped_str), Expr::Str),
+            map(string, Expr::String),
+        )(input),
         ExprClass::List => map(list, Expr::List)(input),
         ExprClass::Bool => map(bool, Expr::Bool)(input),
         ExprClass::Signed => map(signed_integer, SignedInteger::to_expr)(input),
@@ -353,7 +357,7 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
 }
 
 pub fn expr(input: Input) -> IResultLookahead<Expr> {
-    context("expression", expr_inner)(input)
+    cut(context("expression", expr_inner))(input)
 }
 
 fn ron_inner(input: Input) -> IResultLookahead<Ron> {
@@ -404,19 +408,34 @@ mod tests {
 
     #[test]
     fn exprs_str() {
-        assert_eq!(Expr::Str(eval!(unescaped_str, r#""Hello strings!""#)), eval!(expr, r#""Hello strings!""#));
+        assert_eq!(
+            Expr::Str(eval!(unescaped_str, r#""Hello strings!""#)),
+            eval!(expr, r#""Hello strings!""#)
+        );
     }
 
     #[test]
     fn exprs_string() {
-        assert_eq!(Expr::String(eval!(string, r#""\n""#)), eval!(expr, r#""\n""#));
-        assert_eq!(Expr::String(eval!(string, r#""So is /😂\\""#)), eval!(expr, r#""So is /😂\\""#));
-        assert_eq!(Expr::String(eval!(string, r#""\\So is \u{00AC}""#)), eval!(expr, r#""\\So is \u{00AC}""#));
+        assert_eq!(
+            Expr::String(eval!(string, r#""\n""#)),
+            eval!(expr, r#""\n""#)
+        );
+        assert_eq!(
+            Expr::String(eval!(string, r#""So is /😂\\""#)),
+            eval!(expr, r#""So is /😂\\""#)
+        );
+        assert_eq!(
+            Expr::String(eval!(string, r#""\\So is \u{00AC}""#)),
+            eval!(expr, r#""\\So is \u{00AC}""#)
+        );
     }
 
     #[test]
     fn strings() {
-        assert_eq!(eval!(unescaped_str, r#""Hello strings!""#), "Hello strings!");
+        assert_eq!(
+            eval!(unescaped_str, r#""Hello strings!""#),
+            "Hello strings!"
+        );
         assert_eq!(
             eval!(string, r#""Newlines are\n great!""#),
             "Newlines are\n great!"
@@ -504,6 +523,31 @@ mod tests {
     }
 
     #[test]
+    fn untagged_structs() {
+        let int_n3: Integer = Integer::new_test(Some(Sign::Negative), 3);
+        let int_4: Integer = Integer::new_test(None, 4);
+        let expr_int_n3: Expr = int_n3.to_expr();
+        let expr_int_4: Expr = int_4.to_expr();
+
+        let basic_struct = Struct::new_test(None, vec![("x", expr_int_n3), ("y", expr_int_4)]);
+
+        assert_eq!(eval!(r#struct, "(x:-3,y:4)"), basic_struct);
+        assert_eq!(eval!(r#struct, "(x:-3,y:4,)"), basic_struct);
+        assert_eq!(eval!(r#struct, "(x:-3,y:4,  )"), basic_struct);
+        assert_eq!(eval!(r#struct, "(\t  x: -3, y       : 4\n\n)"), basic_struct);
+    }
+
+    #[test]
+    fn opt_idents() {
+        let s = Spanned::new_test;
+
+        assert_eq!(eval!(opt_ident, "Pos"), Some(s(Ident("Pos"))));
+        assert_eq!(eval!(opt_ident, "_0"), Some(s(Ident("_0"))));
+        assert_eq!(eval!(opt_ident, ""), None);
+        assert_eq!(eval!(opt_ident, "!not an ident"), None);
+    }
+
+    #[test]
     fn structs() {
         let int_n3: Integer = Integer::new_test(Some(Sign::Negative), 3);
         let int_4: Integer = Integer::new_test(None, 4);
@@ -520,6 +564,15 @@ mod tests {
             eval!(r#struct, "Pos  (\tx: -3, y       : 4\n\n)"),
             basic_struct
         );
+    }
+
+    #[test]
+    fn excl_mark() {
+        eval!(r#struct, r#"Example(
+    xyz: Asdf(
+        x: 4, yalala: !
+    ),
+)"#);
     }
 
     #[test]
@@ -564,6 +617,10 @@ mod tests {
         assert_eq!(
             eval!(decimal, ".123e3"),
             Decimal::new(None, None, 123, Some((None, 3)))
+        );
+        assert_eq!(
+            eval!(decimal, ".123E-3"),
+            Decimal::new(None, None, 123, Some((Some(Sign::Negative), 3)))
         );
     }
 

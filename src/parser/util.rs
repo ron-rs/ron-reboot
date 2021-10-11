@@ -136,6 +136,7 @@ where
     }
 }
 
+/// Converts recoverable errors into `None`
 pub fn opt<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, Option<O>>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
@@ -143,10 +144,9 @@ where
     move |input: Input| {
         let i = input;
         match f(input) {
-            // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
-            Err(InputParseErr::Fatal(_)) => Ok((i, None)),
-            Err(e) => Err(e),
+            Err(InputParseErr::Recoverable(_)) => Ok((i, None)),
+            Err(e) =>Err(e),
         }
     }
 }
@@ -404,7 +404,10 @@ where
 {
     let comma = one_char(',');
     map(
-        pair(spanned(f.clone()), opt(preceded(comma, comma_list0(f)))),
+        pair(
+            spanned(f.clone()),
+            opt(preceded(lookahead(comma), comma_list0(f))),
+        ),
         |(head, tail): (_, Option<Vec<_>>)| match tail {
             None => vec![head],
             Some(mut tail) => {

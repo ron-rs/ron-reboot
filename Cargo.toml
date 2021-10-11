@@ -28,4 +28,3 @@ required-features = ["serde1_ast_derives"]
 [[example]]
 name = "simple"
 required-features = ["serde/derive", "serde1_serde"]
-

@@ -1,11 +1,10 @@
 use crate::parser::{
     util::{
-        alt2, base_err_res, context, cut, delimited, fold_many0, map, map_res, multispace1,
-        one_char, one_of_chars, preceded, take_while, take_while_m_n,
+        alt2, base_err_res, context, cut, delimited, fold_many0, lookahead, map, map_res,
+        multispace1, one_char, one_of_chars, preceded, take_while, take_while_m_n,
     },
     BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
 };
-use crate::parser::util::lookahead;
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
@@ -90,10 +89,14 @@ fn parse_fragment<'a>(input: Input<'a>) -> IResultLookahead<StringFragment<'a>> 
     alt2(
         // The `map` combinator runs a parser, then applies a function to the output
         // of that parser.
-        map(lookahead(parse_literal), |i| StringFragment::Literal(i.fragment())),
+        map(lookahead(parse_literal), |i| {
+            StringFragment::Literal(i.fragment())
+        }),
         alt2(
             map(lookahead(parse_escaped_char), StringFragment::EscapedChar),
-            map(lookahead(parse_escaped_whitespace), |_| StringFragment::EscapedWS),
+            map(lookahead(parse_escaped_whitespace), |_| {
+                StringFragment::EscapedWS
+            }),
         ),
     )(input)
 }
