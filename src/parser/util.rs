@@ -1,4 +1,3 @@
-use crate::parser::IResult;
 use crate::{
     ast::Spanned,
     parser::{
@@ -97,12 +96,22 @@ where
     }
 }
 
+pub fn lookahead<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
+    where
+        F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+{
+    move |input: Input| match parser(input) {
+        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Recoverable(e)),
+        Ok(x) => Ok(x),
+    }
+}
+
 pub fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| match parser(input) {
-        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(e),
+        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Fatal(e)),
         Ok(x) => Ok(x),
     }
 }

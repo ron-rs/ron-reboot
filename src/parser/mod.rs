@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-pub type IResult<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
+//pub type IResultFatal<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
 pub type IResultLookahead<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
 pub type OutputResult<'a, O> = Result<O, InputParseErr<'a>>;
 
