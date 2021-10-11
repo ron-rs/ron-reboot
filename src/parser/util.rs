@@ -1,15 +1,16 @@
+use crate::parser::IResult;
 use crate::{
     ast::Spanned,
     parser::{
         char_categories::is_ws,
         error::{BaseErrorKind, ErrorTree, Expectation},
-        spanned, IResult, Input, InputParseErr, InputParseError, OutputResult,
+        spanned, IResultLookahead, Input, InputParseErr, InputParseError, OutputResult,
     },
 };
 
 #[inline]
-pub fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
-    Err(InputParseErr::Error(ErrorTree::expected(
+pub fn base_err<T>(input: Input, expectation: Expectation) -> IResultLookahead<T> {
+    Err(InputParseErr::Recoverable(ErrorTree::expected(
         input,
         expectation,
     )))
@@ -17,7 +18,7 @@ pub fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
 
 #[inline]
 pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
-    Err(InputParseErr::Error(ErrorTree::expected(
+    Err(InputParseErr::Recoverable(ErrorTree::expected(
         input,
         expectation,
     )))
@@ -27,11 +28,11 @@ pub fn delimited<'a, F, G, H, O, OI1, OI2>(
     first: F,
     second: G,
     third: H,
-) -> impl FnMut(Input<'a>) -> IResult<O>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
 where
-    F: FnMut(Input<'a>) -> IResult<OI1>,
-    G: FnMut(Input<'a>) -> IResult<O>,
-    H: FnMut(Input<'a>) -> IResult<OI2>,
+    F: FnMut(Input<'a>) -> IResultLookahead<OI1>,
+    G: FnMut(Input<'a>) -> IResultLookahead<O>,
+    H: FnMut(Input<'a>) -> IResultLookahead<OI2>,
 {
     terminated(preceded(first, second), third)
 }
@@ -39,10 +40,10 @@ where
 pub fn pair<'a, F, G, O1, O2>(
     mut first: F,
     mut second: G,
-) -> impl FnMut(Input<'a>) -> IResult<'a, (O1, O2)>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, (O1, O2)>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O1>,
-    G: FnMut(Input<'a>) -> IResult<'a, O2>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O1>,
+    G: FnMut(Input<'a>) -> IResultLookahead<'a, O2>,
 {
     move |input: Input| {
         let (i, r) = first(input)?;
@@ -54,10 +55,10 @@ where
 pub fn preceded<'a, F, G, O, OI>(
     mut first: F,
     mut second: G,
-) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, OI>,
-    G: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, OI>,
+    G: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| {
         let (i, _) = first(input)?;
@@ -69,10 +70,10 @@ where
 pub fn terminated<'a, F, G, O, OI>(
     mut first: F,
     mut second: G,
-) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
-    G: FnMut(Input<'a>) -> IResult<'a, OI>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+    G: FnMut(Input<'a>) -> IResultLookahead<'a, OI>,
 {
     move |input: Input| {
         let (i, r) = first(input)?;
@@ -80,9 +81,9 @@ where
     }
 }
 
-pub fn recognize<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<Input<'a>>
+pub fn recognize<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResultLookahead<Input<'a>>
 where
-    F: FnMut(Input<'a>) -> IResult<O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     move |input: Input| {
         let i = input;
@@ -96,25 +97,25 @@ where
     }
 }
 
-pub fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+pub fn cut<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| match parser(input) {
-        Err(InputParseErr::Error(e)) => Err(InputParseErr::Failure(e)),
-        rest => rest,
+        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(e),
+        Ok(x) => Ok(x),
     }
 }
 
-pub fn alt2<'a, F, G, O>(mut f: F, mut g: G) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+pub fn alt2<'a, F, G, O>(mut f: F, mut g: G) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
-    G: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+    G: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| match f(input) {
-        Err(InputParseErr::Error(first)) => match g(input) {
-            Err(InputParseErr::Error(second)) => {
-                Err(InputParseErr::Error(ErrorTree::alt(first, second)))
+        Err(InputParseErr::Recoverable(first)) => match g(input) {
+            Err(InputParseErr::Recoverable(second)) => {
+                Err(InputParseErr::Recoverable(ErrorTree::alt(first, second)))
             }
             res => res,
         },
@@ -122,46 +123,49 @@ where
     }
 }
 
-pub fn opt<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, Option<O>>
+pub fn opt<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, Option<O>>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| {
         let i = input;
         match f(input) {
             // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
-            Err(InputParseErr::Error(_)) => Ok((i, None)),
+            Err(InputParseErr::Recoverable(_)) => Ok((i, None)),
             Err(e) => Err(e),
         }
     }
 }
 
-pub fn context<'a, F, O>(context: &'static str, mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, O>
+pub fn context<'a, F, O>(
+    context: &'static str,
+    mut f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |i: Input| match f(i) {
         Ok(o) => Ok(o),
-        Err(InputParseErr::Error(e)) => Err(InputParseErr::Error(InputParseError::add_context(
-            i, context, e,
-        ))),
-        Err(InputParseErr::Failure(e)) => Err(InputParseErr::Failure(
+        Err(InputParseErr::Recoverable(e)) => Err(InputParseErr::Recoverable(
             InputParseError::add_context(i, context, e),
         )),
+        Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Fatal(InputParseError::add_context(
+            i, context, e,
+        ))),
     }
 }
 
-pub fn many0<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResult<'a, Vec<O>>
+pub fn many0<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, Vec<O>>
 where
-    F: FnMut(Input<'a>) -> IResult<'a, O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |mut i: Input| {
         let mut acc = Vec::with_capacity(4);
         loop {
             let len = i.len();
             match f(i) {
-                Err(InputParseErr::Error(_)) => return Ok((i, acc)),
+                Err(InputParseErr::Recoverable(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
                     // infinite loop check: the parser must always consume
@@ -177,18 +181,18 @@ where
     }
 }
 
-pub fn multispace0(input: Input) -> IResult<Input> {
+pub fn multispace0(input: Input) -> IResultLookahead<Input> {
     take_while(is_ws)(input)
 }
 
-pub fn multispace1(input: Input) -> IResult<Input> {
+pub fn multispace1(input: Input) -> IResultLookahead<Input> {
     take_while1(is_ws, Expectation::Multispace)(input)
 }
 
 pub fn map<'a, O, O2>(
-    mut parser: impl FnMut(Input<'a>) -> IResult<'a, O>,
+    mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, O>,
     map: impl Fn(O) -> O2 + Clone,
-) -> impl FnMut(Input<'a>) -> IResult<'a, O2> {
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O2> {
     move |input: Input| {
         let (input, o1) = parser(input)?;
         Ok((input, map(o1)))
@@ -196,9 +200,9 @@ pub fn map<'a, O, O2>(
 }
 
 pub fn map_res<'a, O, O2>(
-    mut parser: impl FnMut(Input<'a>) -> IResult<'a, O>,
+    mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, O>,
     map: impl Fn(O) -> OutputResult<'a, O2> + Clone,
-) -> impl FnMut(Input<'a>) -> IResult<'a, O2> {
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O2> {
     move |input: Input| {
         let (input, o1) = parser(input)?;
         Ok((input, map(o1)?))
@@ -208,7 +212,7 @@ pub fn map_res<'a, O, O2>(
 pub fn take_while1<'a>(
     condition: impl Fn(char) -> bool + Clone,
     expectation: Expectation,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>> {
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Input<'a>> {
     map_res(take_while(condition), move |m: Input| match m.is_empty() {
         true => base_err_res(m, expectation),
         false => Ok(m),
@@ -220,7 +224,7 @@ pub fn take_while_m_n<'a>(
     n: usize,
     condition: impl Fn(char) -> bool + Clone,
     expectation: Expectation,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>> {
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Input<'a>> {
     assert!(m <= n);
 
     let mut counter = 0;
@@ -244,11 +248,10 @@ pub fn take_while_m_n<'a>(
     )
 }
 
-pub fn take_while(mut condition: impl FnMut(char) -> bool) -> impl FnMut(Input) -> IResult<Input> {
-    move |input: Input| match input
-        .char_indices()
-        .find(|(_ind, c)| !condition(*c))
-    {
+pub fn take_while(
+    mut condition: impl FnMut(char) -> bool,
+) -> impl FnMut(Input) -> IResultLookahead<Input> {
+    move |input: Input| match input.char_indices().find(|(_ind, c)| !condition(*c)) {
         Some((ind, _)) => Ok(input.take_split(ind)),
         None => Ok(input.take_split(input.len())),
     }
@@ -258,9 +261,9 @@ pub fn fold_many0<'a, O, F, G, H, R>(
     mut f: F,
     mut init: H,
     mut g: G,
-) -> impl FnMut(Input<'a>) -> IResult<R>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<R>
 where
-    F: FnMut(Input<'a>) -> IResult<O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
     G: FnMut(R, O) -> R,
     H: FnMut() -> R,
 {
@@ -282,7 +285,7 @@ where
                     res = g(res, o);
                     input = i;
                 }
-                Err(InputParseErr::Error(_)) => {
+                Err(InputParseErr::Recoverable(_)) => {
                     return Ok((input, res));
                 }
                 Err(e) => {
@@ -293,7 +296,7 @@ where
     }
 }
 
-pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResult<Input> {
+pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResultLookahead<Input> {
     let tag_len = tag.len();
 
     move |input: Input| match input.fragment().starts_with(tag) {
@@ -305,23 +308,23 @@ pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResult<Input> {
 pub fn take_if_c(
     condition: impl Fn(char) -> bool,
     expectations: &'static [Expectation],
-) -> impl Fn(Input) -> IResult<Input> {
+) -> impl Fn(Input) -> IResultLookahead<Input> {
     move |input: Input| match input.chars().next().map(|t| (t, condition(t))) {
         Some((c, true)) => Ok((input.slice(c.len_utf8()..), input.slice(1..))),
-        _ => Err(InputParseErr::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfExpectations(expectations)),
         })),
     }
 }
 
-pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
+pub fn one_char(c: char) -> impl Fn(Input) -> IResultLookahead<char> {
     move |input: Input| match input.chars().next().map(|t| {
         let b = t == c;
         (&c, b)
     }) {
         Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c)),
-        _ => Err(InputParseErr::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::Char(c)),
         })),
@@ -331,13 +334,13 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
 pub fn one_of_chars<O: Clone>(
     one_of: &'static str,
     mapping: &'static [O],
-) -> impl Fn(Input) -> IResult<O> {
+) -> impl Fn(Input) -> IResultLookahead<O> {
     move |input: Input| match input.chars().next().map(|t| {
         let b = one_of.chars().position(|c| c == t);
         (t, b)
     }) {
         Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
         })),
@@ -347,23 +350,25 @@ pub fn one_of_chars<O: Clone>(
 pub fn one_of_tags<O: Clone>(
     one_of: &'static [&'static str],
     mapping: &'static [O],
-) -> impl Fn(Input) -> IResult<O> {
+) -> impl Fn(Input) -> IResultLookahead<O> {
     move |input: Input| match one_of
         .iter()
         .enumerate()
         .find(|(_, &t)| input.fragment().starts_with(t))
     {
         Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),
         })),
     }
 }
 
-pub fn comma_list0<'a, F: 'a, O: 'a>(f: F) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
+pub fn comma_list0<'a, F: 'a, O: 'a>(
+    f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
 where
-    F: FnMut(Input<'a>) -> IResult<O> + Clone,
+    F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
     let with_trailing = many0(terminated(spanned(f.clone()), one_char(',')));
 
@@ -376,9 +381,11 @@ where
     )
 }
 
-pub fn comma_list1<'a, F: 'a, O: 'a>(f: F) -> impl FnMut(Input<'a>) -> IResult<Vec<Spanned<'a, O>>>
+pub fn comma_list1<'a, F: 'a, O: 'a>(
+    f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
 where
-    F: FnMut(Input<'a>) -> IResult<O> + Clone,
+    F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
     let comma = one_char(',');
     map(

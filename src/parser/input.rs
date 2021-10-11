@@ -3,7 +3,7 @@ use std::{
     slice::SliceIndex,
 };
 
-use crate::parser::{IResult, Input};
+use crate::parser::IResultLookahead;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Offset {
@@ -36,13 +36,7 @@ impl<'a> From<Input<'a>> for Location {
                     "offset not at char boundary"
                 );
 
-                let line = i
-                    .input
-                    .bytes()
-                    .take(offset)
-                    .filter(|&b| b == b'\n')
-                    .count()
-                    + 1;
+                let line = i.input.bytes().take(offset).filter(|&b| b == b'\n').count() + 1;
 
                 let (byte_ind, char_ind, _c) = get_char_at_offset(i.input, offset);
 
@@ -77,7 +71,7 @@ impl Display for Location {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LocatedSpan<'a> {
+pub struct Input<'a> {
     offset: Offset,
 
     /// the complete input
@@ -87,9 +81,9 @@ pub struct LocatedSpan<'a> {
     fragment: &'a str,
 }
 
-impl<'a> LocatedSpan<'a> {
+impl<'a> Input<'a> {
     pub fn new(input: &'a str) -> Self {
-        LocatedSpan {
+        Input {
             offset: Offset::Absolute(0),
             input,
             fragment: input,
@@ -132,7 +126,7 @@ impl<'a> LocatedSpan<'a> {
         let next_fragment = &self.fragment[range];
         let consumed_len = str_offset(self.fragment, next_fragment);
         if consumed_len == 0 {
-            return LocatedSpan {
+            return Input {
                 offset: self.offset,
                 input: self.input,
                 fragment: next_fragment,
@@ -140,7 +134,7 @@ impl<'a> LocatedSpan<'a> {
         }
         let next_offset = self.offset.add(consumed_len);
 
-        LocatedSpan {
+        Input {
             offset: next_offset,
             input: self.input,
             fragment: next_fragment,
@@ -148,7 +142,7 @@ impl<'a> LocatedSpan<'a> {
     }
 }
 
-impl<'a> Display for LocatedSpan<'a> {
+impl<'a> Display for Input<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -159,7 +153,7 @@ impl<'a> Display for LocatedSpan<'a> {
     }
 }
 
-pub fn position(input: Input) -> IResult<Input> {
+pub fn position(input: Input) -> IResultLookahead<Input> {
     Ok(input.take_split(0))
 }
 

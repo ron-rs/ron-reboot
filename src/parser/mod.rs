@@ -16,9 +16,8 @@ use crate::{
     },
 };
 
-pub type Input<'a> = LocatedSpan<'a>;
-pub type InputParseError<'a> = ErrorTree<Input<'a>>;
-pub type IResult<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
+pub type IResult<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
+pub type IResultLookahead<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
 pub type OutputResult<'a, O> = Result<O, InputParseErr<'a>>;
 
 mod char_categories;
@@ -28,14 +27,14 @@ mod string;
 mod util;
 
 pub use self::{
-    error::{BaseErrorKind, ErrorTree, Expectation, InputParseErr},
-    input::{LocatedSpan, Location, Offset},
+    error::{BaseErrorKind, ErrorTree, Expectation, InputParseErr, InputParseError},
+    input::{Input, Location, Offset},
     string::parse_string as string,
 };
 
-pub fn spanned<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Input<'a>) -> IResult<Spanned<O>>
+pub fn spanned<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Input<'a>) -> IResultLookahead<Spanned<O>>
 where
-    F: FnMut(Input<'a>) -> IResult<O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
     O: 'a,
 {
     ws(move |input: Input<'a>| {
@@ -47,46 +46,46 @@ where
     })
 }
 
-fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResult<O>
+fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
 where
-    F: FnMut(Input<'a>) -> IResult<O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     delimited(multispace0, inner, multispace0)
 }
 
-fn ident_first_char(input: Input) -> IResult<Input> {
+fn ident_first_char(input: Input) -> IResultLookahead<Input> {
     take_if_c(
         is_ident_first_char,
         &[Expectation::Alpha, Expectation::Char('_')],
     )(input)
 }
 
-fn ident_inner(input: Input) -> IResult<Input> {
+fn ident_inner(input: Input) -> IResultLookahead<Input> {
     recognize(preceded(ident_first_char, take_while(is_ident_other_char)))(input)
 }
 
-pub fn ident(input: Input) -> IResult<Ident> {
+pub fn ident(input: Input) -> IResultLookahead<Ident> {
     context("ident", map(ident_inner, Ident::from_input))(input)
 }
 
-pub fn sign(input: Input) -> IResult<Sign> {
+pub fn sign(input: Input) -> IResultLookahead<Sign> {
     one_of_chars("+-", &[Sign::Positive, Sign::Negative])(input)
 }
 
 fn parse_u64(input: Input) -> OutputResult<u64> {
     u64::from_str(input.fragment()).map_err(|e| {
-        InputParseErr::Error(ErrorTree::Base {
+        InputParseErr::Recoverable(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::External(Box::new(e)),
         })
     })
 }
 
-fn decimal_unsigned(input: Input) -> IResult<u64> {
+fn decimal_unsigned(input: Input) -> IResultLookahead<u64> {
     map_res(take_while(is_digit), parse_u64)(input)
 }
 
-fn decimal_unsigned_no_start_with_zero(input: Input) -> IResult<u64> {
+fn decimal_unsigned_no_start_with_zero(input: Input) -> IResultLookahead<u64> {
     map_res(
         recognize(preceded(
             take_if_c(is_digit_first, &[Expectation::DigitFirst]),
@@ -96,24 +95,21 @@ fn decimal_unsigned_no_start_with_zero(input: Input) -> IResult<u64> {
     )(input)
 }
 
-pub fn unsigned(input: Input) -> IResult<UnsignedInteger> {
+pub fn unsigned(input: Input) -> IResultLookahead<UnsignedInteger> {
     map(decimal_unsigned_no_start_with_zero, |number| {
         UnsignedInteger { number }
     })(input)
 }
 
-pub fn signed_integer(input: Input) -> IResult<SignedInteger> {
+pub fn signed_integer(input: Input) -> IResultLookahead<SignedInteger> {
     let (input, sign) = sign(input)?;
     // Need to create temp var for borrow checker
-    let x = map(decimal_unsigned, |number| SignedInteger {
-        sign,
-        number,
-    })(input);
+    let x = map(decimal_unsigned, |number| SignedInteger { sign, number })(input);
 
     x
 }
 
-pub fn integer(input: Input) -> IResult<Integer> {
+pub fn integer(input: Input) -> IResultLookahead<Integer> {
     context(
         "integer",
         alt2(
@@ -123,7 +119,7 @@ pub fn integer(input: Input) -> IResult<Integer> {
     )(input)
 }
 
-fn decimal_exp(input: Input) -> IResult<Option<(Option<Sign>, u16)>> {
+fn decimal_exp(input: Input) -> IResultLookahead<Option<(Option<Sign>, u16)>> {
     opt(preceded(
         one_of_chars("eE", &[(), ()]),
         pair(opt(sign), map(decimal_unsigned, |n| n as u16)),
@@ -135,7 +131,7 @@ fn decimal_exp(input: Input) -> IResult<Option<(Option<Sign>, u16)>> {
 /// * `+1.23e3`
 /// * `-5.0`
 /// * `1222.00`
-fn decimal_std(input: Input) -> IResult<Decimal> {
+fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
     let (input, sign) = opt(sign)(input)?;
     // Need to create temp var for borrow checker
     let x = map(
@@ -150,7 +146,7 @@ fn decimal_std(input: Input) -> IResult<Decimal> {
 }
 
 /// A decimal without a whole part e.g. `.01`
-fn decimal_frac(input: Input) -> IResult<Decimal> {
+fn decimal_frac(input: Input) -> IResultLookahead<Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
         preceded(one_char('.'), pair(decimal_unsigned, decimal_exp)),
@@ -160,11 +156,11 @@ fn decimal_frac(input: Input) -> IResult<Decimal> {
     x
 }
 
-fn decimal(input: Input) -> IResult<Decimal> {
+fn decimal(input: Input) -> IResultLookahead<Decimal> {
     context("decimal", alt2(decimal_std, decimal_frac))(input)
 }
 
-fn ident_val_pair(input: Input) -> IResult<KeyValue<Ident>> {
+fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
     let pair = pair(
         terminated(spanned(ident), cut(one_char(':'))),
         spanned(expr),
@@ -176,9 +172,9 @@ fn block<'a, F: 'a, O>(
     start_tag: char,
     inner: F,
     end_tag: char,
-) -> impl FnMut(Input<'a>) -> IResult<O>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
 where
-    F: FnMut(Input<'a>) -> IResult<O>,
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     #[allow(unused_parens)]
     delimited(
@@ -188,7 +184,7 @@ where
     )
 }
 
-pub fn r#struct(input: Input) -> IResult<Struct> {
+pub fn r#struct(input: Input) -> IResultLookahead<Struct> {
     let ident_struct = opt(spanned(ident));
     let untagged_struct = spanned(block('(', ws(comma_list0(ident_val_pair)), ')'));
     // Need to create temp var for borrow checker
@@ -200,12 +196,12 @@ pub fn r#struct(input: Input) -> IResult<Struct> {
     x
 }
 
-fn key_val_pair(input: Input) -> IResult<KeyValue<Expr>> {
+fn key_val_pair(input: Input) -> IResultLookahead<KeyValue<Expr>> {
     let pair = pair(terminated(spanned(expr), cut(one_char(':'))), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
-pub fn rmap(input: Input) -> IResult<Map> {
+pub fn rmap(input: Input) -> IResultLookahead<Map> {
     map(
         context(
             "map",
@@ -215,7 +211,7 @@ pub fn rmap(input: Input) -> IResult<Map> {
     )(input)
 }
 
-pub fn list(input: Input) -> IResult<List> {
+pub fn list(input: Input) -> IResultLookahead<List> {
     context(
         "list",
         block(
@@ -226,7 +222,7 @@ pub fn list(input: Input) -> IResult<List> {
     )(input)
 }
 
-pub fn tuple(input: Input) -> IResult<List> {
+pub fn tuple(input: Input) -> IResultLookahead<List> {
     context(
         "tuple",
         block(
@@ -237,28 +233,28 @@ pub fn tuple(input: Input) -> IResult<List> {
     )(input)
 }
 
-pub fn bool(input: Input) -> IResult<bool> {
+pub fn bool(input: Input) -> IResultLookahead<bool> {
     context("bool", one_of_tags(&["true", "false"], &[true, false]))(input)
 }
 
-fn inner_str(input: Input) -> IResult<&str> {
+fn inner_str(input: Input) -> IResultLookahead<&str> {
     map(take_while(|c| c != '"' && c != '\\'), |x: Input| {
         x.fragment()
     })(input)
 }
 
-pub fn unescaped_str(input: Input) -> IResult<&str> {
+pub fn unescaped_str(input: Input) -> IResultLookahead<&str> {
     delimited(tag("\""), inner_str, tag("\""))(input)
 }
 
-fn extension_name(input: Input) -> IResult<Extension> {
+fn extension_name(input: Input) -> IResultLookahead<Extension> {
     one_of_tags(
         &["unwrap_newtypes", "implicit_some"],
         &[Extension::UnwrapNewtypes, Extension::ImplicitSome],
     )(input)
 }
 
-fn attribute_enable(input: Input) -> IResult<Attribute> {
+fn attribute_enable(input: Input) -> IResultLookahead<Attribute> {
     let start = preceded(tag("enable"), ws(one_char('(')));
     let end = one_char(')');
 
@@ -269,7 +265,7 @@ fn attribute_enable(input: Input) -> IResult<Attribute> {
     )(input)
 }
 
-pub fn attribute(input: Input) -> IResult<Attribute> {
+pub fn attribute(input: Input) -> IResultLookahead<Attribute> {
     let start = preceded(
         preceded(one_char('#'), ws(one_char('!'))),
         ws(one_char('[')),
@@ -287,7 +283,7 @@ macro_rules! alt {
     };
 }
 
-fn expr_inner(input: Input) -> IResult<Expr> {
+fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     alt!(
         map(bool, Expr::Bool),
         map(tuple, Expr::Tuple),
@@ -301,11 +297,11 @@ fn expr_inner(input: Input) -> IResult<Expr> {
     )(input)
 }
 
-pub fn expr(input: Input) -> IResult<Expr> {
+pub fn expr(input: Input) -> IResultLookahead<Expr> {
     context("expression", expr_inner)(input)
 }
 
-fn ron_inner(input: Input) -> IResult<Ron> {
+fn ron_inner(input: Input) -> IResultLookahead<Ron> {
     map(
         pair(many0(spanned(attribute)), spanned(expr)),
         |(attributes, expr)| Ron { attributes, expr },
@@ -318,7 +314,7 @@ pub fn ron(input: &str) -> Result<Ron, InputParseError> {
     match ron_inner(input) {
         Ok((i, ron)) if i.is_empty() => Ok(ron),
         Ok((i, _)) => Err(ErrorTree::expected(i, Expectation::Eof)),
-        Err(InputParseErr::Failure(e)) | Err(InputParseErr::Error(e)) => Err(e),
+        Err(InputParseErr::Fatal(e)) | Err(InputParseErr::Recoverable(e)) => Err(e),
     }
 }
 

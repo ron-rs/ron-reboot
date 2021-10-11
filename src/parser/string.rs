@@ -3,13 +3,13 @@ use crate::parser::{
         alt2, base_err_res, context, cut, delimited, fold_many0, map, map_res, multispace1,
         one_char, one_of_chars, preceded, take_while, take_while_m_n,
     },
-    BaseErrorKind, ErrorTree, Expectation, IResult, Input, InputParseErr,
+    BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
 };
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
 /// to parse sequences like \u{00AC}.
-fn parse_unicode(input: Input) -> IResult<char> {
+fn parse_unicode(input: Input) -> IResultLookahead<char> {
     let parse_hex = take_while_m_n(1, 6, |c: char| c.is_ascii_hexdigit(), Expectation::HexDigit);
 
     dbg!(input);
@@ -21,21 +21,23 @@ fn parse_unicode(input: Input) -> IResult<char> {
 
     map_res(parse_delimited_hex, move |hex: Input| {
         let parsed_u32 = u32::from_str_radix(hex.fragment(), 16).map_err(|e| {
-            InputParseErr::Error(ErrorTree::Base {
+            InputParseErr::Recoverable(ErrorTree::Base {
                 location: input,
                 kind: BaseErrorKind::External(Box::new(e)),
             })
         })?;
 
-        std::char::from_u32(parsed_u32).ok_or_else(|| InputParseErr::Error(ErrorTree::expected(
-            input,
-            Expectation::UnicodeHexSequence { got: parsed_u32 },
-        )))
+        std::char::from_u32(parsed_u32).ok_or_else(|| {
+            InputParseErr::Recoverable(ErrorTree::expected(
+                input,
+                Expectation::UnicodeHexSequence { got: parsed_u32 },
+            ))
+        })
     })(input)
 }
 
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-fn parse_escaped_char(input: Input) -> IResult<char> {
+fn parse_escaped_char(input: Input) -> IResultLookahead<char> {
     preceded(
         one_char('\\'),
         cut(alt2(
@@ -50,12 +52,12 @@ fn parse_escaped_char(input: Input) -> IResult<char> {
 
 /// Parse a backslash, followed by any amount of whitespace. This is used later
 /// to discard any escaped whitespace.
-fn parse_escaped_whitespace<'a>(input: Input<'a>) -> IResult<Input<'a>> {
+fn parse_escaped_whitespace<'a>(input: Input<'a>) -> IResultLookahead<Input<'a>> {
     preceded(one_char('\\'), multispace1)(input)
 }
 
 /// Parse a non-empty block of text that doesn't include \ or "
-fn parse_literal<'a>(input: Input<'a>) -> IResult<Input<'a>> {
+fn parse_literal<'a>(input: Input<'a>) -> IResultLookahead<Input<'a>> {
     // `is_not` parses a string of 0 or more characters that aren't one of the
     // given characters.
     let not_quote_slash = take_while(|c| c != '"' && c != '\\');
@@ -85,7 +87,7 @@ enum StringFragment<'a> {
 
 /// Combine parse_literal, parse_escaped_whitespace, and parse_escaped_char
 /// into a StringFragment.
-fn parse_fragment<'a>(input: Input<'a>) -> IResult<StringFragment<'a>> {
+fn parse_fragment<'a>(input: Input<'a>) -> IResultLookahead<StringFragment<'a>> {
     alt2(
         // The `map` combinator runs a parser, then applies a function to the output
         // of that parser.
@@ -99,7 +101,7 @@ fn parse_fragment<'a>(input: Input<'a>) -> IResult<StringFragment<'a>> {
 
 /// Parse a string. Use a loop of parse_fragment and push all of the fragments
 /// into an output string.
-pub fn parse_string(input: Input) -> IResult<String> {
+pub fn parse_string(input: Input) -> IResultLookahead<String> {
     // fold_many0 is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(

@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 macro_rules! eval {
     ($parser:expr,$input:expr) => {
@@ -17,7 +16,7 @@ use crate::parser::{Input, InputParseErr};
 pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
     match r {
         Ok((_, the_value)) => the_value,
-        Err(InputParseErr::Error(e) | InputParseErr::Failure(e)) => {
+        Err(InputParseErr::Recoverable(e) | InputParseErr::Fatal(e)) => {
             panic!("{}", e)
         }
         Err(e) => {

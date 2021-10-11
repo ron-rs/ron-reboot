@@ -6,26 +6,26 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
 };
 
-use crate::parser::InputParseError;
+use crate::{parser::Input, util::write_pretty_list};
 
-use crate::util::write_pretty_list;
+pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 
 #[derive(Debug)]
 #[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum InputParseErr<'a> {
     /// The parser had an error (recoverable)
-    Error(InputParseError<'a>),
+    Recoverable(InputParseError<'a>),
     /// The parser had an unrecoverable error: we got to the right
     /// branch and we know other branches won't work, so backtrack
     /// as fast as possible
-    Failure(InputParseError<'a>),
+    Fatal(InputParseError<'a>),
 }
 
 impl<'a> Display for InputParseErr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            InputParseErr::Error(e) => write!(f, "{}", e),
-            InputParseErr::Failure(e) => write!(f, "{}", e),
+            InputParseErr::Recoverable(e) => write!(f, "{}", e),
+            InputParseErr::Fatal(e) => write!(f, "{}", e),
         }
     }
 }
@@ -261,11 +261,13 @@ impl<I: Display> Display for ErrorTree<I> {
                 write!(
                     f,
                     "{}",
-                    indent(siblings
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(" or\n"))
+                    indent(
+                        siblings
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" or\n")
+                    )
                 )
             }
         }
@@ -310,13 +312,13 @@ impl Display for Indented {
                 // We don't need an indent. Scan for the end of the line
                 false => match s.as_bytes().iter().position(|&b| b == b'\n') {
                     // No end of line in the input; write the entire string
-                    None => break  f.write_str(s),
+                    None => break f.write_str(s),
 
                     // We can see the end of the line. Write up to and including
                     // that newline, then request an indent
                     Some(len) => {
                         let (head, tail) = s.split_at(len + 1);
-                         f.write_str(head)?;
+                        f.write_str(head)?;
                         need_indent = true;
                         s = tail;
                     }
@@ -325,15 +327,15 @@ impl Display for Indented {
                 // non-empty line.
                 true => match s.as_bytes().iter().position(|&b| b != b'\n') {
                     // No non-empty lines in input, write the entire string
-                    None => break  f.write_str(s),
+                    None => break f.write_str(s),
 
                     // We can see the next non-empty line. Write up to the
                     // beginning of that line, then insert an indent, then
                     // continue.
                     Some(len) => {
                         let (head, tail) = s.split_at(len);
-                         f.write_str(head)?;
-                         f.write_str("    ")?;
+                        f.write_str(head)?;
+                        f.write_str("    ")?;
                         need_indent = false;
                         s = tail;
                     }

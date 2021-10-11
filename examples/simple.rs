@@ -12,7 +12,6 @@ fn main() {
 
     match from_str::<MyStruct>(&s) {
         Ok(x) => {
-
             println!("Debug:");
             println!("{:#?}", x);
         }
