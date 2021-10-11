@@ -7,10 +7,6 @@ use std::{
 };
 
 use indent_write::fmt::IndentWriter;
-use nom::{
-    error::{ErrorKind as NomErrorKind, FromExternalError},
-};
-use nom_supreme::tag::TagError;
 use crate::parser::InputParseError;
 
 use crate::util::write_pretty_list;
@@ -135,9 +131,6 @@ pub enum BaseErrorKind {
     /// See [`Expectation`] for details.
     Expected(Expectation),
 
-    /// A nom parser failed.
-    Kind(NomErrorKind),
-
     /// An error outside of nom occurred during parsing; for instance, as a
     /// result of an error during [`map_res`].
     ///
@@ -154,17 +147,12 @@ impl Display for BaseErrorKind {
                 let mut f = IndentWriter::new("  ", f);
                 write!(f, "{}", err)
             }
-            BaseErrorKind::Kind(kind) => write!(f, "error in {:?}", kind),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StackContext {
-    /// A nom combinator attached an [`ErrorKind`][NomErrorKind] as context
-    /// for a subparser error.
-    Kind(NomErrorKind),
-
     /// The [`context`][crate::parser_ext::ParserExt::context] combinator
     /// attached a message as context for a subparser error.
     Context(&'static str),
@@ -173,7 +161,6 @@ pub enum StackContext {
 impl Display for StackContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            StackContext::Kind(kind) => write!(f, "while parsing {:?}", kind),
             StackContext::Context(ctx) => write!(f, "could not match {:?}", ctx),
         }
     }
@@ -412,28 +399,6 @@ impl<I> ErrorTree<I> {
                 base: Box::new(base),
                 contexts: vec![context],
             },
-        }
-    }
-}
-
-impl<I, E: Error + Send + Sync + 'static> FromExternalError<I, E> for ErrorTree<I> {
-    /// Create an error from a given external error, such as from FromStr
-    fn from_external_error(location: I, _kind: NomErrorKind, e: E) -> Self {
-        ErrorTree::Base {
-            location,
-            kind: BaseErrorKind::External(Box::new(e)),
-        }
-    }
-}
-
-impl<I> TagError<I, &'static str> for ErrorTree<I> {
-    fn from_tag(location: I, tag: &'static str) -> Self {
-        ErrorTree::Base {
-            location,
-            kind: BaseErrorKind::Expected(match tag {
-                "\r\n" => Expectation::CrLf,
-                tag => Expectation::Tag(tag),
-            }),
         }
     }
 }
