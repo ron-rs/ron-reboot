@@ -2,16 +2,16 @@ use std::str::FromStr;
 
 use crate::{
     ast::{
-        Attribute, Decimal, Expr, Extension, Ident, Integer, KeyValue, List, Map, Ron, Sign,
-        SignedInteger, Spanned, Struct, UnsignedInteger,
+        Attribute, Decimal, Expr, Extension, Ident, KeyValue, List, Map, Ron, Sign, SignedInteger,
+        Spanned, Struct, UnsignedInteger,
     },
     parser::{
         char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
         input::position,
         util::{
-            alt2, comma_list0, comma_list1, context, cut, delimited, many0, map, map_res,
-            multispace0, one_char, one_of_chars, one_of_tags, opt, pair, preceded, recognize, tag,
-            take_if_c, take_while, terminated,
+            alt2, comma_list0, comma_list1, context, cut, delimited, lookahead, many0, map,
+            map_res, multispace0, one_char, one_of_chars, one_of_tags, opt, pair, preceded,
+            recognize, tag, take1_if, take_while, terminated,
         },
     },
 };
@@ -54,9 +54,9 @@ where
 }
 
 fn ident_first_char(input: Input) -> IResultLookahead<Input> {
-    take_if_c(
+    take1_if(
         is_ident_first_char,
-        &[Expectation::Alpha, Expectation::Char('_')],
+        Expectation::OneOfExpectations(&[Expectation::Alpha, Expectation::Char('_')]),
     )(input)
 }
 
@@ -74,7 +74,7 @@ pub fn sign(input: Input) -> IResultLookahead<Sign> {
 
 fn parse_u64(input: Input) -> OutputResult<u64> {
     u64::from_str(input.fragment()).map_err(|e| {
-        InputParseErr::Recoverable(ErrorTree::Base {
+        InputParseErr::Fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::External(Box::new(e)),
         })
@@ -88,7 +88,7 @@ fn decimal_unsigned(input: Input) -> IResultLookahead<u64> {
 fn decimal_unsigned_no_start_with_zero(input: Input) -> IResultLookahead<u64> {
     map_res(
         recognize(preceded(
-            take_if_c(is_digit_first, &[Expectation::DigitFirst]),
+            take1_if(is_digit_first, Expectation::DigitFirst),
             take_while(is_digit),
         )),
         parse_u64,
@@ -102,19 +102,18 @@ pub fn unsigned(input: Input) -> IResultLookahead<UnsignedInteger> {
 }
 
 pub fn signed_integer(input: Input) -> IResultLookahead<SignedInteger> {
-    let (input, sign) = sign(input)?;
-    // Need to create temp var for borrow checker
-    let x = map(decimal_unsigned, |number| SignedInteger { sign, number })(input);
-
-    x
+    map(pair(lookahead(sign), decimal_unsigned), |(sign, number)| {
+        SignedInteger { sign, number }
+    })(input)
 }
 
-pub fn integer(input: Input) -> IResultLookahead<Integer> {
+#[cfg(test)]
+pub fn integer(input: Input) -> IResultLookahead<crate::ast::Integer> {
     context(
         "integer",
         alt2(
-            map(unsigned, Integer::Unsigned),
-            map(signed_integer, Integer::Signed),
+            map(signed_integer, crate::ast::Integer::Signed),
+            map(unsigned, crate::ast::Integer::Unsigned),
         ),
     )(input)
 }
@@ -149,7 +148,10 @@ fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
 fn decimal_frac(input: Input) -> IResultLookahead<Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
-        preceded(one_char('.'), pair(decimal_unsigned, decimal_exp)),
+        preceded(
+            lookahead(one_char('.')),
+            pair(decimal_unsigned, decimal_exp),
+        ),
         |(fractional, exp)| Decimal::new(None, None, fractional, exp),
     )(input);
 
@@ -157,7 +159,7 @@ fn decimal_frac(input: Input) -> IResultLookahead<Decimal> {
 }
 
 fn decimal(input: Input) -> IResultLookahead<Decimal> {
-    context("decimal", alt2(decimal_std, decimal_frac))(input)
+    context("decimal", alt2(decimal_frac, decimal_std))(input)
 }
 
 fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
@@ -275,26 +277,79 @@ pub fn attribute(input: Input) -> IResultLookahead<Attribute> {
     context("attribute", delimited(start, ws(attribute_enable), end))(input)
 }
 
-macro_rules! alt {
-    ($p1:expr) => { $p1 };
-    ($p1:expr, $p2:expr) => { alt2($p1, $p2) };
-    ($p1:expr, $p2:expr, $($p:expr),+) => {
-        alt!(alt2($p1, $p2), alt!($($p),*))
-    };
+#[derive(Clone, Debug)]
+pub enum ExprClass {
+    StructTuple,
+    Map,
+    StrString,
+    List,
+    Bool,
+    Signed,
+    Dec,
+    UnsignedDec,
+    LeadingIdent,
+}
+
+impl ExprClass {
+    pub fn parse(input: Input) -> IResultLookahead<Self> {
+        let all_but_ident = one_of_chars(
+            "({\"[tf+-.0123456789",
+            &[
+                ExprClass::StructTuple,
+                ExprClass::Map,
+                ExprClass::StrString,
+                ExprClass::List,
+                ExprClass::Bool,
+                ExprClass::Bool,
+                ExprClass::Signed,
+                ExprClass::Signed,
+                ExprClass::Dec,
+                ExprClass::Dec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+                ExprClass::UnsignedDec,
+            ],
+        );
+
+        alt2(
+            lookahead(all_but_ident),
+            map(
+                take1_if(
+                    is_ident_first_char,
+                    Expectation::OneOfExpectations(&[Expectation::Alpha, Expectation::Char('_')]),
+                ),
+                |_| ExprClass::LeadingIdent,
+            ),
+        )(input)
+    }
 }
 
 fn expr_inner(input: Input) -> IResultLookahead<Expr> {
-    alt!(
-        map(bool, Expr::Bool),
-        map(tuple, Expr::Tuple),
-        map(list, Expr::List),
-        map(rmap, Expr::Map),
-        map(r#struct, Expr::Struct),
-        map(integer, Expr::Integer),
-        map(decimal, Expr::Decimal),
-        map(unescaped_str, Expr::Str),
-        map(string, Expr::String)
-    )(input)
+    // Copy input and discard its offset ("peek")
+    let (_, expr_class): (Input, ExprClass) = ExprClass::parse(input)?;
+
+    match expr_class {
+        ExprClass::StructTuple => alt2(map(r#struct, Expr::Struct), map(tuple, Expr::Tuple))(input),
+        ExprClass::Map => map(rmap, Expr::Map)(input),
+        ExprClass::StrString => {
+            alt2(map(lookahead(unescaped_str), Expr::Str), map(string, Expr::String))(input)
+        }
+        ExprClass::List => map(list, Expr::List)(input),
+        ExprClass::Bool => map(bool, Expr::Bool)(input),
+        ExprClass::Signed => map(signed_integer, SignedInteger::to_expr)(input),
+        ExprClass::Dec => map(decimal, Expr::Decimal)(input),
+        ExprClass::UnsignedDec => alt2(
+            map(unsigned, UnsignedInteger::to_expr),
+            map(decimal, Expr::Decimal),
+        )(input),
+        ExprClass::LeadingIdent => map(r#struct, Expr::Struct)(input),
+    }
 }
 
 pub fn expr(input: Input) -> IResultLookahead<Expr> {
@@ -321,7 +376,7 @@ pub fn ron(input: &str) -> Result<Ron, InputParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::eval;
+    use crate::{ast::Integer, test_util::eval};
 
     #[test]
     fn trailing_commas() {
@@ -348,8 +403,20 @@ mod tests {
     }
 
     #[test]
+    fn exprs_str() {
+        assert_eq!(Expr::Str(eval!(unescaped_str, r#""Hello strings!""#)), eval!(expr, r#""Hello strings!""#));
+    }
+
+    #[test]
+    fn exprs_string() {
+        assert_eq!(Expr::String(eval!(string, r#""\n""#)), eval!(expr, r#""\n""#));
+        assert_eq!(Expr::String(eval!(string, r#""So is /😂\\""#)), eval!(expr, r#""So is /😂\\""#));
+        assert_eq!(Expr::String(eval!(string, r#""\\So is \u{00AC}""#)), eval!(expr, r#""\\So is \u{00AC}""#));
+    }
+
+    #[test]
     fn strings() {
-        assert_eq!(eval!(string, r#""Hello strings!""#), "Hello strings!");
+        assert_eq!(eval!(unescaped_str, r#""Hello strings!""#), "Hello strings!");
         assert_eq!(
             eval!(string, r#""Newlines are\n great!""#),
             "Newlines are\n great!"

@@ -5,14 +5,13 @@ use crate::parser::{
     },
     BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
 };
+use crate::parser::util::lookahead;
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
 /// to parse sequences like \u{00AC}.
 fn parse_unicode(input: Input) -> IResultLookahead<char> {
     let parse_hex = take_while_m_n(1, 6, |c: char| c.is_ascii_hexdigit(), Expectation::HexDigit);
-
-    dbg!(input);
 
     let parse_delimited_hex = preceded(
         one_char('u'),
@@ -21,14 +20,14 @@ fn parse_unicode(input: Input) -> IResultLookahead<char> {
 
     map_res(parse_delimited_hex, move |hex: Input| {
         let parsed_u32 = u32::from_str_radix(hex.fragment(), 16).map_err(|e| {
-            InputParseErr::Recoverable(ErrorTree::Base {
+            InputParseErr::Fatal(ErrorTree::Base {
                 location: input,
                 kind: BaseErrorKind::External(Box::new(e)),
             })
         })?;
 
         std::char::from_u32(parsed_u32).ok_or_else(|| {
-            InputParseErr::Recoverable(ErrorTree::expected(
+            InputParseErr::Fatal(ErrorTree::expected(
                 input,
                 Expectation::UnicodeHexSequence { got: parsed_u32 },
             ))
@@ -40,13 +39,13 @@ fn parse_unicode(input: Input) -> IResultLookahead<char> {
 fn parse_escaped_char(input: Input) -> IResultLookahead<char> {
     preceded(
         one_char('\\'),
-        cut(alt2(
-            parse_unicode,
+        alt2(
+            lookahead(parse_unicode),
             one_of_chars(
                 "nrtbf\\/\"",
                 &['\n', '\r', '\t', '\u{08}', '\u{0C}', '\\', '/', '"'],
             ),
-        )),
+        ),
     )(input)
 }
 
@@ -91,22 +90,20 @@ fn parse_fragment<'a>(input: Input<'a>) -> IResultLookahead<StringFragment<'a>> 
     alt2(
         // The `map` combinator runs a parser, then applies a function to the output
         // of that parser.
-        map(parse_literal, |i| StringFragment::Literal(i.fragment())),
+        map(lookahead(parse_literal), |i| StringFragment::Literal(i.fragment())),
         alt2(
-            map(parse_escaped_char, StringFragment::EscapedChar),
-            map(parse_escaped_whitespace, |_| StringFragment::EscapedWS),
+            map(lookahead(parse_escaped_char), StringFragment::EscapedChar),
+            map(lookahead(parse_escaped_whitespace), |_| StringFragment::EscapedWS),
         ),
     )(input)
 }
 
-/// Parse a string. Use a loop of parse_fragment and push all of the fragments
-/// into an output string.
-pub fn parse_string(input: Input) -> IResultLookahead<String> {
+fn inner_string(input: Input) -> IResultLookahead<String> {
     // fold_many0 is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
-    let build_string = fold_many0(
+    fold_many0(
         // Our parser function– parses a single string fragment
-        parse_fragment,
+        lookahead(parse_fragment),
         // Our init value, an empty string
         String::new,
         // Our folding function. For each fragment, append the fragment to the
@@ -119,14 +116,18 @@ pub fn parse_string(input: Input) -> IResultLookahead<String> {
             }
             string
         },
-    );
+    )(input)
+}
 
+/// Parse a string. Use a loop of parse_fragment and push all of the fragments
+/// into an output string.
+pub fn parse_string(input: Input) -> IResultLookahead<String> {
     // Finally, parse the string. Note that, if `build_string` could accept a raw
     // " character, the closing delimiter " would never match. When using
     // `delimited` with a looping parser (like fold_many0), be sure that the
     // loop won't accidentally match your closing delimiter!
     context(
         "string",
-        delimited(one_char('"'), build_string, one_char('"')),
+        delimited(one_char('"'), inner_string, one_char('"')),
     )(input)
 }

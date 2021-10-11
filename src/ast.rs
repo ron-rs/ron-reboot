@@ -102,7 +102,6 @@ impl UnsignedInteger {
         UnsignedInteger { number }
     }
 
-    #[cfg(test)]
     pub fn to_expr(self) -> Expr<'static> {
         Expr::Integer(Integer::Unsigned(self))
     }
@@ -119,6 +118,10 @@ impl SignedInteger {
     #[cfg(test)]
     pub fn new_test(sign: Sign, number: u64) -> Self {
         SignedInteger { sign, number }
+    }
+
+    pub fn to_expr(self) -> Expr<'static> {
+        Expr::Integer(Integer::Signed(self))
     }
 }
 

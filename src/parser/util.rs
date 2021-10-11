@@ -9,7 +9,7 @@ use crate::{
 
 #[inline]
 pub fn base_err<T>(input: Input, expectation: Expectation) -> IResultLookahead<T> {
-    Err(InputParseErr::Recoverable(ErrorTree::expected(
+    Err(InputParseErr::Fatal(ErrorTree::expected(
         input,
         expectation,
     )))
@@ -17,7 +17,7 @@ pub fn base_err<T>(input: Input, expectation: Expectation) -> IResultLookahead<T
 
 #[inline]
 pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
-    Err(InputParseErr::Recoverable(ErrorTree::expected(
+    Err(InputParseErr::Fatal(ErrorTree::expected(
         input,
         expectation,
     )))
@@ -97,11 +97,13 @@ where
 }
 
 pub fn lookahead<'a, O, F>(mut parser: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
-    where
-        F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| match parser(input) {
-        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Recoverable(e)),
+        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => {
+            Err(InputParseErr::Recoverable(e))
+        }
         Ok(x) => Ok(x),
     }
 }
@@ -111,7 +113,9 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |input: Input| match parser(input) {
-        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Fatal(e)),
+        Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => {
+            Err(InputParseErr::Fatal(e))
+        }
         Ok(x) => Ok(x),
     }
 }
@@ -141,7 +145,7 @@ where
         match f(input) {
             // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
-            Err(InputParseErr::Recoverable(_)) => Ok((i, None)),
+            Err(InputParseErr::Fatal(_)) => Ok((i, None)),
             Err(e) => Err(e),
         }
     }
@@ -174,7 +178,7 @@ where
         loop {
             let len = i.len();
             match f(i) {
-                Err(InputParseErr::Recoverable(_)) => return Ok((i, acc)),
+                Err(InputParseErr::Fatal(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
                     // infinite loop check: the parser must always consume
@@ -240,7 +244,7 @@ pub fn take_while_m_n<'a>(
 
     map_res(
         take_while(move |c| {
-            if dbg!(counter) == n {
+            if counter == n {
                 false
             } else {
                 counter += 1;
@@ -314,15 +318,15 @@ pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResultLookahead<Inpu
     }
 }
 
-pub fn take_if_c(
+pub fn take1_if(
     condition: impl Fn(char) -> bool,
-    expectations: &'static [Expectation],
+    expectation: Expectation,
 ) -> impl Fn(Input) -> IResultLookahead<Input> {
     move |input: Input| match input.chars().next().map(|t| (t, condition(t))) {
-        Some((c, true)) => Ok((input.slice(c.len_utf8()..), input.slice(1..))),
-        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
+        Some((c, true)) => Ok(input.take_split(c.len_utf8())),
+        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
             location: input,
-            kind: BaseErrorKind::Expected(Expectation::OneOfExpectations(expectations)),
+            kind: BaseErrorKind::Expected(expectation),
         })),
     }
 }
@@ -333,7 +337,7 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResultLookahead<char> {
         (&c, b)
     }) {
         Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c)),
-        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
+        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::Char(c)),
         })),
@@ -344,12 +348,14 @@ pub fn one_of_chars<O: Clone>(
     one_of: &'static str,
     mapping: &'static [O],
 ) -> impl Fn(Input) -> IResultLookahead<O> {
+    assert_eq!(one_of.len(), mapping.len());
+
     move |input: Input| match input.chars().next().map(|t| {
         let b = one_of.chars().position(|c| c == t);
         (t, b)
     }) {
         Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
+        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
         })),
@@ -366,7 +372,7 @@ pub fn one_of_tags<O: Clone>(
         .find(|(_, &t)| input.fragment().starts_with(t))
     {
         Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Recoverable(ErrorTree::Base {
+        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),
         })),

@@ -19,9 +19,6 @@ pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
         Err(InputParseErr::Recoverable(e) | InputParseErr::Fatal(e)) => {
             panic!("{}", e)
         }
-        Err(e) => {
-            panic!("{}", e)
-        }
     }
 }
 
