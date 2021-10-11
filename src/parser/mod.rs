@@ -18,8 +18,8 @@ use crate::{
 
 pub type Input<'a> = LocatedSpan<'a>;
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
-pub type IResult<'a, O> = nom::IResult<Input<'a>, O, ErrorTree<Input<'a>>>;
-pub type OutputResult<'a, O> = Result<O, nom::Err<InputParseError<'a>>>;
+pub type IResult<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
+pub type OutputResult<'a, O> = Result<O, InputParseErr<'a>>;
 
 mod char_categories;
 mod error;
@@ -75,7 +75,7 @@ pub fn sign(input: Input) -> IResult<Sign> {
 
 fn parse_u64(input: Input) -> OutputResult<u64> {
     u64::from_str(input.fragment()).map_err(|e| {
-        nom::Err::Error(ErrorTree::Base {
+        InputParseErr::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::External(Box::new(e)),
         })
@@ -318,8 +318,8 @@ pub fn ron(input: &str) -> Result<Ron, InputParseError> {
     match ron_inner(input) {
         Ok((i, ron)) if i.is_empty() => Ok(ron),
         Ok((i, _)) => Err(ErrorTree::expected(i, Expectation::Eof)),
-        Err(nom::Err::Failure(e)) | Err(nom::Err::Error(e)) => Err(e),
-        Err(nom::Err::Incomplete(_e)) => unreachable!(),
+        Err(InputParseErr::Failure(e)) | Err(InputParseErr::Error(e)) => Err(e),
+        Err(InputParseErr::Incomplete(_e)) => unreachable!(),
     }
 }
 

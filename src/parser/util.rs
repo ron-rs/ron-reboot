@@ -1,24 +1,22 @@
 #![allow(dead_code)]
 
-use nom::Err;
-
 use crate::{
     ast::Spanned,
     parser::{
         char_categories::is_ws,
         error::{BaseErrorKind, ErrorTree, Expectation},
-        spanned, IResult, Input, InputParseError, OutputResult,
+        spanned, IResult, Input, InputParseErr, InputParseError, OutputResult,
     },
 };
 
 #[inline]
 pub fn base_err<T>(input: Input, expectation: Expectation) -> IResult<T> {
-    Err(nom::Err::Error(ErrorTree::expected(input, expectation)))
+    Err(InputParseErr::Error(ErrorTree::expected(input, expectation)))
 }
 
 #[inline]
 pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
-    Err(nom::Err::Error(ErrorTree::expected(input, expectation)))
+    Err(InputParseErr::Error(ErrorTree::expected(input, expectation)))
 }
 
 pub fn delimited<'a, F, G, H, O, OI1, OI2>(
@@ -99,7 +97,7 @@ where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
     move |input: Input| match parser(input) {
-        Err(Err::Error(e)) => Err(Err::Failure(e)),
+        Err(InputParseErr::Error(e)) => Err(InputParseErr::Failure(e)),
         rest => rest,
     }
 }
@@ -110,8 +108,8 @@ where
     G: FnMut(Input<'a>) -> IResult<'a, O>,
 {
     move |input: Input| match f(input.clone()) {
-        Err(Err::Error(first)) => match g(input.clone()) {
-            Err(Err::Error(second)) => Err(Err::Error(ErrorTree::alt(first, second))),
+        Err(InputParseErr::Error(first)) => match g(input.clone()) {
+            Err(InputParseErr::Error(second)) => Err(InputParseErr::Error(ErrorTree::alt(first, second))),
             res => res,
         },
         res => res,
@@ -127,7 +125,7 @@ where
         match f(input) {
             // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
-            Err(Err::Error(_)) => Ok((i, None)),
+            Err(InputParseErr::Error(_)) => Ok((i, None)),
             Err(e) => Err(e),
         }
     }
@@ -139,9 +137,9 @@ where
 {
     move |i: Input| match f(i.clone()) {
         Ok(o) => Ok(o),
-        Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
-        Err(Err::Error(e)) => Err(Err::Error(InputParseError::add_context(i, context, e))),
-        Err(Err::Failure(e)) => Err(Err::Failure(InputParseError::add_context(i, context, e))),
+        Err(InputParseErr::Incomplete(i)) => Err(InputParseErr::Incomplete(i)),
+        Err(InputParseErr::Error(e)) => Err(InputParseErr::Error(InputParseError::add_context(i, context, e))),
+        Err(InputParseErr::Failure(e)) => Err(InputParseErr::Failure(InputParseError::add_context(i, context, e))),
     }
 }
 
@@ -154,7 +152,7 @@ where
         loop {
             let len = i.len();
             match f(i.clone()) {
-                Err(Err::Error(_)) => return Ok((i, acc)),
+                Err(InputParseErr::Error(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
                     // infinite loop check: the parser must always consume
@@ -270,13 +268,13 @@ where
                     // infinite loop check: the parser must always consume
                     if i.len() == len {
                         todo!()
-                        //return Err(Err::Error(E::from_error_kind(input, ErrorKind::Many0)));
+                        //return Err(InputParseErr::Error(E::from_error_kind(input, ErrorKind::Many0)));
                     }
 
                     res = g(res, o);
                     input = i;
                 }
-                Err(Err::Error(_)) => {
+                Err(InputParseErr::Error(_)) => {
                     return Ok((input, res));
                 }
                 Err(e) => {
@@ -302,7 +300,7 @@ pub fn take_if_c(
 ) -> impl Fn(Input) -> IResult<Input> {
     move |input: Input| match input.chars().next().map(|t| (t, condition(t))) {
         Some((c, true)) => Ok((input.slice(c.len_utf8()..), input.slice(1..))),
-        _ => Err(nom::Err::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfExpectations(expectations)),
         })),
@@ -326,7 +324,7 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResult<char> {
         (&c, b)
     }) {
         Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c)),
-        _ => Err(nom::Err::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::Char(c)),
         })),
@@ -342,7 +340,7 @@ pub fn one_of_chars<O: Clone>(
         (t, b)
     }) {
         Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone())),
-        _ => Err(nom::Err::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
         })),
@@ -359,7 +357,7 @@ pub fn one_of_tags<O: Clone>(
         .find(|(_, &t)| input.fragment().starts_with(t))
     {
         Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
-        _ => Err(nom::Err::Error(ErrorTree::Base {
+        _ => Err(InputParseErr::Error(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),
         })),

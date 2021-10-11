@@ -8,15 +8,14 @@ use std::{
 
 use indent_write::fmt::IndentWriter;
 use nom::{
-    error::{ErrorKind as NomErrorKind, FromExternalError, ParseError},
-    InputLength,
+    error::{ErrorKind as NomErrorKind, FromExternalError},
 };
 use nom_supreme::tag::TagError;
 use crate::parser::InputParseError;
 
 use crate::util::write_pretty_list;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 #[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum InputParseErr<'a> {
     /// There was not enough data
@@ -27,6 +26,16 @@ pub enum InputParseErr<'a> {
     /// branch and we know other branches won't work, so backtrack
     /// as fast as possible
     Failure(InputParseError<'a>),
+}
+
+impl<'a> Display for InputParseErr<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            InputParseErr::Incomplete(_) => todo!(),
+            InputParseErr::Error(e) => write!(f, "{}", e),
+            InputParseErr::Failure(e) => write!(f, "{}", e),
+        }
+    }
 }
 
 #[non_exhaustive]

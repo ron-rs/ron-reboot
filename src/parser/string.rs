@@ -3,7 +3,7 @@ use crate::parser::{
         alt2, base_err_res, context, cut, delimited, fold_many0, map, map_res, multispace1,
         one_char, one_of_chars, preceded, take_while, take_while_m_n,
     },
-    BaseErrorKind, ErrorTree, Expectation, IResult, Input,
+    BaseErrorKind, ErrorTree, Expectation, IResult, Input, InputParseErr
 };
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
@@ -21,13 +21,13 @@ fn parse_unicode(input: Input) -> IResult<char> {
 
     map_res(parse_delimited_hex, move |hex: Input| {
         let parsed_u32 = u32::from_str_radix(hex.fragment(), 16).map_err(|e| {
-            nom::Err::Error(ErrorTree::Base {
+            InputParseErr::Error(ErrorTree::Base {
                 location: input,
                 kind: BaseErrorKind::External(Box::new(e)),
             })
         })?;
 
-        std::char::from_u32(parsed_u32).ok_or(nom::Err::Error(ErrorTree::expected(
+        std::char::from_u32(parsed_u32).ok_or(InputParseErr::Error(ErrorTree::expected(
             input,
             Expectation::UnicodeHexSequence { got: parsed_u32 },
         )))

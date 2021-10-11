@@ -11,12 +11,12 @@ macro_rules! eval {
 
 pub(crate) use eval;
 
-use crate::parser::{Input, InputParseError};
+use crate::parser::{Input, InputParseErr, InputParseError};
 
-pub fn unwrap_pr1<T>(r: Result<(Input, T), nom::Err<InputParseError>>) -> T {
+pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
     match r {
         Ok((_, the_value)) => the_value,
-        Err(nom::Err::Error(e) | nom::Err::Failure(e)) => {
+        Err(InputParseErr::Error(e) | InputParseErr::Failure(e)) => {
             panic!("{}", e)
         }
         Err(e) => {
