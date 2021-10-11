@@ -306,7 +306,7 @@ pub fn indent(display: impl Display) -> Indented {
 impl Display for Indented {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut s = self.0.as_str();
-        let mut need_indent = false;
+        let mut need_indent = true;
         loop {
             match need_indent {
                 // We don't need an indent. Scan for the end of the line
