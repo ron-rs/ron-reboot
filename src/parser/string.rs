@@ -27,7 +27,7 @@ fn parse_unicode(input: Input) -> IResult<char> {
             })
         })?;
 
-        std::char::from_u32(parsed_u32).ok_or(InputParseErr::Error(ErrorTree::expected(
+        std::char::from_u32(parsed_u32).ok_or_else(|| InputParseErr::Error(ErrorTree::expected(
             input,
             Expectation::UnicodeHexSequence { got: parsed_u32 },
         )))

@@ -2,20 +2,8 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     error_fmt::ErrorTreeFmt,
-    parser::{Input, InputParseError, Location},
+    parser::{InputParseError, Location},
 };
-
-pub fn ron_err(kind: ErrorKind, start: Input, end: Input) -> Error {
-    Error {
-        kind,
-        start: Some(start.into()),
-        end: Some(end.into()),
-    }
-}
-
-pub fn ron_err_custom(kind: ErrorKind, start: Option<Location>, end: Option<Location>) -> Error {
-    Error { kind, start, end }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
@@ -64,6 +52,7 @@ impl Display for Error {
 impl std::error::Error for Error {}
 
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ErrorKind {
     ExpectedBool,
     ExpectedString,
@@ -73,9 +62,6 @@ pub enum ErrorKind {
     ParseError(String),
 
     Custom(String),
-
-    #[doc(hidden)]
-    __NonExhaustive,
 }
 
 impl Display for ErrorKind {
@@ -89,7 +75,6 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedList => write!(f, "expected list"),
             ErrorKind::ParseError(e) => write!(f, "parsing error: {}", e),
             ErrorKind::Custom(s) => write!(f, "{}", s),
-            ErrorKind::__NonExhaustive => unimplemented!(),
         }
     }
 }

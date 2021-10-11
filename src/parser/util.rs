@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::{
     ast::Spanned,
     parser::{
@@ -78,7 +76,7 @@ where
 {
     move |input: Input| {
         let (i, r) = first(input)?;
-        second(i.clone()).map(|(i, _)| (i, r))
+        second(i).map(|(i, _)| (i, r))
     }
 }
 
@@ -87,7 +85,7 @@ where
     F: FnMut(Input<'a>) -> IResult<O>,
 {
     move |input: Input| {
-        let i = input.clone();
+        let i = input;
         match parser(i) {
             Ok((i, _)) => {
                 let index = input.offset_to(&i);
@@ -113,8 +111,8 @@ where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
     G: FnMut(Input<'a>) -> IResult<'a, O>,
 {
-    move |input: Input| match f(input.clone()) {
-        Err(InputParseErr::Error(first)) => match g(input.clone()) {
+    move |input: Input| match f(input) {
+        Err(InputParseErr::Error(first)) => match g(input) {
             Err(InputParseErr::Error(second)) => {
                 Err(InputParseErr::Error(ErrorTree::alt(first, second)))
             }
@@ -129,7 +127,7 @@ where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
     move |input: Input| {
-        let i = input.clone();
+        let i = input;
         match f(input) {
             // TODO: shouldn't this slice i?
             Ok((i, o)) => Ok((i, Some(o))),
@@ -143,9 +141,8 @@ pub fn context<'a, F, O>(context: &'static str, mut f: F) -> impl FnMut(Input<'a
 where
     F: FnMut(Input<'a>) -> IResult<'a, O>,
 {
-    move |i: Input| match f(i.clone()) {
+    move |i: Input| match f(i) {
         Ok(o) => Ok(o),
-        Err(InputParseErr::Incomplete(i)) => Err(InputParseErr::Incomplete(i)),
         Err(InputParseErr::Error(e)) => Err(InputParseErr::Error(InputParseError::add_context(
             i, context, e,
         ))),
@@ -163,7 +160,7 @@ where
         let mut acc = Vec::with_capacity(4);
         loop {
             let len = i.len();
-            match f(i.clone()) {
+            match f(i) {
                 Err(InputParseErr::Error(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
@@ -250,8 +247,7 @@ pub fn take_while_m_n<'a>(
 pub fn take_while(mut condition: impl FnMut(char) -> bool) -> impl FnMut(Input) -> IResult<Input> {
     move |input: Input| match input
         .char_indices()
-        .skip_while(|(_ind, c)| condition(*c))
-        .next()
+        .find(|(_ind, c)| !condition(*c))
     {
         Some((ind, _)) => Ok(input.take_split(ind)),
         None => Ok(input.take_split(input.len())),
@@ -273,7 +269,7 @@ where
         let mut input = i;
 
         loop {
-            let i_ = input.clone();
+            let i_ = input;
             let len = input.len();
             match f(i_) {
                 Ok((i, o)) => {
@@ -316,17 +312,6 @@ pub fn take_if_c(
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfExpectations(expectations)),
         })),
-    }
-}
-
-pub fn take_if_c_char(
-    condition: impl Fn(char) -> bool + 'static,
-    expectations: &'static [Expectation],
-) -> impl Fn(Input) -> IResult<char> {
-    move |input| {
-        map(take_if_c(&condition, expectations), |input: Input| {
-            input.fragment().chars().next().unwrap()
-        })(input)
     }
 }
 

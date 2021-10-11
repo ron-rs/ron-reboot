@@ -40,7 +40,7 @@ impl<'a> From<Input<'a>> for Location {
                     .input
                     .bytes()
                     .take(offset)
-                    .filter(|&b| b == '\n' as u8)
+                    .filter(|&b| b == b'\n')
                     .count()
                     + 1;
 
@@ -153,7 +153,7 @@ impl<'a> Display for LocatedSpan<'a> {
         write!(
             f,
             "at {} (`{}`)",
-            Location::from(self.clone()),
+            Location::from(*self),
             self.fragment.get(..1).unwrap_or("eof"),
         )
     }
@@ -171,8 +171,7 @@ fn get_char_at_offset(input: &str, offset: usize) -> (usize, usize, char) {
         .enumerate()
         .map(|(c_ind, (b_ind, c))| (b_ind, c_ind, c))
         // we now have an iterator of (byte index, char index, char)
-        .skip_while(|(i, _, _)| *i < offset)
-        .next()
+        .find(|(i, _, _)| *i >= offset)
         .unwrap_or((input.len(), input.chars().count(), '�'))
 }
 

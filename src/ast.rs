@@ -90,16 +90,6 @@ pub enum Sign {
     Negative,
 }
 
-impl Sign {
-    pub fn from_char(sign: char) -> Option<Self> {
-        match sign {
-            '+' => Some(Sign::Positive),
-            '-' => Some(Sign::Negative),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct UnsignedInteger {
@@ -107,6 +97,7 @@ pub struct UnsignedInteger {
 }
 
 impl UnsignedInteger {
+    #[cfg(test)]
     pub const fn new(number: u64) -> Self {
         UnsignedInteger { number }
     }
@@ -128,11 +119,6 @@ impl SignedInteger {
     #[cfg(test)]
     pub fn new_test(sign: Sign, number: u64) -> Self {
         SignedInteger { sign, number }
-    }
-
-    #[cfg(test)]
-    pub fn to_expr(self) -> Expr<'static> {
-        Expr::Integer(Integer::Signed(self))
     }
 }
 
@@ -181,11 +167,6 @@ impl Decimal {
             exponent,
         }
     }
-
-    #[cfg(test)]
-    pub fn to_expr(self) -> Expr<'static> {
-        Expr::Decimal(self)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -215,6 +196,7 @@ pub struct Struct<'a> {
 }
 
 impl<'a> Struct<'a> {
+    #[cfg(test)]
     pub fn new(
         ident: Option<Spanned<'a, Ident<'a>>>,
         fields: Spanned<'a, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>>,

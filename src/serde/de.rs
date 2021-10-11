@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use serde::{
     de::{DeserializeSeed, MapAccess, SeqAccess, Visitor},
     forward_to_deserialize_any, Deserialize, Deserializer,

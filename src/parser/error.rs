@@ -13,8 +13,6 @@ use crate::util::write_pretty_list;
 #[derive(Debug)]
 #[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum InputParseErr<'a> {
-    /// There was not enough data
-    Incomplete(()),
     /// The parser had an error (recoverable)
     Error(InputParseError<'a>),
     /// The parser had an unrecoverable error: we got to the right
@@ -26,7 +24,6 @@ pub enum InputParseErr<'a> {
 impl<'a> Display for InputParseErr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            InputParseErr::Incomplete(_) => todo!(),
             InputParseErr::Error(e) => write!(f, "{}", e),
             InputParseErr::Failure(e) => write!(f, "{}", e),
         }

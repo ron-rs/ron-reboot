@@ -1,3 +1,5 @@
+#![cfg(never)]
+
 use std::io::{stdin, Read};
 
 use ron_reboot::{error_fmt::ErrorTreeFmt, parser::ron};

@@ -1,5 +1,5 @@
-#![allow(unused)]
 
+#[cfg(test)]
 macro_rules! eval {
     ($parser:expr,$input:expr) => {
         $crate::test_util::unwrap_pr1(eval!(@result $parser, $input))
@@ -9,9 +9,10 @@ macro_rules! eval {
     };
 }
 
+#[cfg(test)]
 pub(crate) use eval;
 
-use crate::parser::{Input, InputParseErr, InputParseError};
+use crate::parser::{Input, InputParseErr};
 
 pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
     match r {

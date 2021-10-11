@@ -1,11 +1,13 @@
-pub mod ast;
-pub mod ast_walker;
-pub mod error;
+mod ast;
+mod error;
 pub mod error_fmt;
-pub mod parser;
+mod parser;
 #[cfg(feature = "serde1_serde")]
-pub mod serde;
+mod serde;
 mod util;
+
+#[cfg(feature = "serde1_serde")]
+pub use self::serde::from_str;
 
 // Integration tests cannot import this without the feature gate
 // (not sure why that is...)

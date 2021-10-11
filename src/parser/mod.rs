@@ -106,7 +106,7 @@ pub fn signed_integer(input: Input) -> IResult<SignedInteger> {
     let (input, sign) = sign(input)?;
     // Need to create temp var for borrow checker
     let x = map(decimal_unsigned, |number| SignedInteger {
-        sign: sign.clone(),
+        sign,
         number,
     })(input);
 
@@ -143,7 +143,7 @@ fn decimal_std(input: Input) -> IResult<Decimal> {
             terminated(decimal_unsigned, one_char('.')),
             pair(decimal_unsigned, decimal_exp),
         ),
-        |(whole, (fractional, exp))| Decimal::new(sign.clone(), Some(whole), fractional, exp),
+        |(whole, (fractional, exp))| Decimal::new(sign, Some(whole), fractional, exp),
     )(input);
 
     x
@@ -319,7 +319,6 @@ pub fn ron(input: &str) -> Result<Ron, InputParseError> {
         Ok((i, ron)) if i.is_empty() => Ok(ron),
         Ok((i, _)) => Err(ErrorTree::expected(i, Expectation::Eof)),
         Err(InputParseErr::Failure(e)) | Err(InputParseErr::Error(e)) => Err(e),
-        Err(InputParseErr::Incomplete(_e)) => unreachable!(),
     }
 }
 

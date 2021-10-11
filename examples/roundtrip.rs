@@ -1,5 +1,5 @@
 use ron::{ser::to_string_pretty, Value};
-use ron_reboot::serde::from_str;
+use ron_reboot::from_str;
 
 fn main() {
     let s = std::fs::read_to_string(std::env::args().nth(1).unwrap()).expect("file not found");
@@ -11,14 +11,6 @@ fn main() {
             println!();
             println!("Debug:");
             println!("{:#?}", x);
-
-            println!();
-            println!("AST:");
-            println!(
-                "{}",
-                to_string_pretty(&ron_reboot::parser::ron(&s).unwrap(), Default::default())
-                    .unwrap()
-            );
         }
         Err(e) => {
             let mut e = &e as &dyn std::error::Error;

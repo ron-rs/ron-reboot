@@ -1,4 +1,4 @@
-use ron_reboot::serde::from_str;
+use ron_reboot::from_str;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
