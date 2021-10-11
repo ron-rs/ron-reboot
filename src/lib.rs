@@ -7,4 +7,7 @@ pub mod parser;
 pub mod serde;
 mod util;
 
-pub use nom;
+// Integration tests cannot import this without the feature gate
+// (not sure why that is...)
+#[cfg(any(test, feature = "test"))]
+pub mod test_util;

@@ -1,11 +1,6 @@
 use std::str::FromStr;
 
-use nom::{
-    sequence::{delimited, pair, preceded, separated_pair},
-    Parser,
-};
 use nom_locate::{position, LocatedSpan};
-use nom_supreme::ParserExt;
 
 use crate::{
     ast::{
@@ -15,8 +10,9 @@ use crate::{
     parser::{
         char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
         util::{
-            alt2, comma_list0, comma_list1, context, cut, many0, map, map_res, multispace0,
-            one_char, one_of_chars, one_of_tags, opt, recognize, tag, take_if_c, take_while,
+            alt2, comma_list0, comma_list1, context, cut, delimited, many0, map, map_res,
+            multispace0, one_char, one_of_chars, one_of_tags, opt, pair, preceded, recognize, tag,
+            take_if_c, take_while, terminated,
         },
     },
 };
@@ -65,10 +61,7 @@ fn ident_first_char(input: Input) -> IResult<Input> {
 }
 
 fn ident_inner(input: Input) -> IResult<Input> {
-    ident_first_char
-        .precedes(take_while(is_ident_other_char))
-        .recognize()
-        .parse(input)
+    recognize(preceded(ident_first_char, take_while(is_ident_other_char)))(input)
 }
 
 pub fn ident(input: Input) -> IResult<Ident> {
@@ -145,9 +138,8 @@ fn decimal_std(input: Input) -> IResult<Decimal> {
     let (input, sign) = opt(sign)(input)?;
     // Need to create temp var for borrow checker
     let x = map(
-        separated_pair(
-            decimal_unsigned,
-            one_char('.'),
+        pair(
+            terminated(decimal_unsigned, one_char('.')),
             pair(decimal_unsigned, decimal_exp),
         ),
         |(whole, (fractional, exp))| Decimal::new(sign.clone(), Some(whole), fractional, exp),
@@ -172,7 +164,10 @@ fn decimal(input: Input) -> IResult<Decimal> {
 }
 
 fn ident_val_pair(input: Input) -> IResult<KeyValue<Ident>> {
-    let pair = separated_pair(spanned(ident), cut(one_char(':')), spanned(expr));
+    let pair = pair(
+        terminated(spanned(ident), cut(one_char(':'))),
+        spanned(expr),
+    );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
@@ -194,7 +189,7 @@ where
 
 pub fn r#struct(input: Input) -> IResult<Struct> {
     let ident_struct = opt(spanned(ident));
-    let untagged_struct = spanned(block('(', comma_list0(ident_val_pair), ')'));
+    let untagged_struct = spanned(block('(', ws(comma_list0(ident_val_pair)), ')'));
     // Need to create temp var for borrow checker
     let x = map(
         context("struct", pair(ident_struct, untagged_struct)),
@@ -205,35 +200,37 @@ pub fn r#struct(input: Input) -> IResult<Struct> {
 }
 
 fn key_val_pair(input: Input) -> IResult<KeyValue<Expr>> {
-    let pair = separated_pair(spanned(expr), cut(one_char(':')), spanned(expr));
+    let pair = pair(terminated(spanned(expr), cut(one_char(':'))), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
 pub fn rmap(input: Input) -> IResult<Map> {
     map(
-        context("map", spanned(block('{', comma_list0(key_val_pair), '}'))),
+        context("map", spanned(block('{', ws(comma_list0(key_val_pair)), '}'))),
         |fields| Map { entries: fields },
     )(input)
 }
 
 pub fn list(input: Input) -> IResult<List> {
-    block(
-        '[',
-        map(comma_list0(expr), |elements| List { elements }),
-        ']',
-    )
-    .context("list")
-    .parse(input)
+    context(
+        "list",
+        block(
+            '[',
+            map(ws(comma_list0(expr)), |elements| List { elements }),
+            ']',
+        ),
+    )(input)
 }
 
 pub fn tuple(input: Input) -> IResult<List> {
-    block(
-        '(',
-        map(comma_list0(expr), |elements| List { elements }),
-        ')',
-    )
-    .context("tuple")
-    .parse(input)
+    context(
+        "tuple",
+        block(
+            '(',
+            map(comma_list0(expr), |elements| List { elements }),
+            ')',
+        ),
+    )(input)
 }
 
 pub fn bool(input: Input) -> IResult<bool> {
@@ -241,9 +238,9 @@ pub fn bool(input: Input) -> IResult<bool> {
 }
 
 fn inner_str(input: Input) -> IResult<&str> {
-    take_while(|c| c != '"' && c != '\\')
-        .map(|x: Input| *x.fragment())
-        .parse(input)
+    map(take_while(|c| c != '"' && c != '\\'), |x: Input| {
+        *x.fragment()
+    })(input)
 }
 
 pub fn unescaped_str(input: Input) -> IResult<&str> {
@@ -258,25 +255,24 @@ fn extension_name(input: Input) -> IResult<Extension> {
 }
 
 fn attribute_enable(input: Input) -> IResult<Attribute> {
-    let start = tag("enable").precedes(ws(one_char('(')));
+    let start = preceded(tag("enable"), ws(one_char('(')));
     let end = one_char(')');
 
     delimited(
         start,
-        spanned(comma_list1(extension_name)).map(Attribute::Enable),
+        map(spanned(comma_list1(extension_name)), Attribute::Enable),
         end,
     )(input)
 }
 
 pub fn attribute(input: Input) -> IResult<Attribute> {
-    let start = one_char('#')
-        .precedes(ws(one_char('!')))
-        .precedes(ws(one_char('[')));
+    let start = preceded(
+        preceded(one_char('#'), ws(one_char('!'))),
+        ws(one_char('[')),
+    );
     let end = one_char(']');
 
-    delimited(start, ws(attribute_enable), end)
-        .context("attribute")
-        .parse(input)
+    context("attribute", delimited(start, ws(attribute_enable), end))(input)
 }
 
 macro_rules! alt {
@@ -306,41 +302,27 @@ pub fn expr(input: Input) -> IResult<Expr> {
 }
 
 fn ron_inner(input: Input) -> IResult<Ron> {
-    pair(many0(spanned(attribute)), spanned(expr))
-        .map(|(attributes, expr)| Ron { attributes, expr })
-        .parse(input)
+    map(
+        pair(many0(spanned(attribute)), spanned(expr)),
+        |(attributes, expr)| Ron { attributes, expr },
+    )(input)
 }
 
 pub fn ron(input: &str) -> Result<Ron, InputParseError> {
     let input = Input::new(input);
 
-    match ron_inner.complete().all_consuming().cut().parse(input) {
-        Ok((_, ron)) => Ok(ron),
-        Err(nom::Err::Failure(e)) => Err(e),
-        _ => unreachable!(),
+    match ron_inner(input) {
+        Ok((i, ron)) if i.is_empty() => Ok(ron),
+        Ok((i, _)) => Err(ErrorTree::expected(i, Expectation::Eof)),
+        Err(nom::Err::Failure(e)) | Err(nom::Err::Error(e)) => Err(e),
+        Err(nom::Err::Incomplete(_e)) => unreachable!(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    macro_rules! eval {
-        ($parser:ident,$input:expr) => {
-            match $parser($crate::parser::Input::new($input)) {
-                Ok((_, the_value)) => the_value,
-                Err(nom::Err::Error(e) | nom::Err::Failure(e)) => {
-                    panic!("{}", e)
-                }
-                Err(e) => {
-                    panic!("{}", e)
-                }
-            }
-        };
-        (@result $parser:ident,$input:expr) => {
-            $parser(Input::new($input))
-        };
-    }
+    use crate::test_util::eval;
 
     #[test]
     fn trailing_commas() {
@@ -466,6 +448,8 @@ mod tests {
             Struct::new_test(Some("Pos"), vec![("x", expr_int_n3), ("y", expr_int_4)]);
 
         assert_eq!(eval!(r#struct, "Pos(x:-3,y:4)"), basic_struct);
+        assert_eq!(eval!(r#struct, "Pos(x:-3,y:4,)"), basic_struct);
+        assert_eq!(eval!(r#struct, "Pos(x:-3,y:4,  )"), basic_struct);
         assert_eq!(
             eval!(r#struct, "Pos  (\tx: -3, y       : 4\n\n)"),
             basic_struct

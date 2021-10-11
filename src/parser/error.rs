@@ -185,6 +185,13 @@ pub enum ErrorTree<I> {
 }
 
 impl<I> ErrorTree<I> {
+    pub fn expected(location: I, expectation: Expectation) -> Self {
+        ErrorTree::Base {
+            location,
+            kind: BaseErrorKind::Expected(expectation),
+        }
+    }
+
     pub fn alt(first: Self, second: Self) -> Self {
         match (first, second) {
             (ErrorTree::Alt(mut alt), ErrorTree::Alt(alt2)) => {

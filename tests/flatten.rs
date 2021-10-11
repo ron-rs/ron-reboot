@@ -1,7 +1,10 @@
+#![cfg(test)]
+
 use std::{collections::HashMap, iter::FromIterator};
 
 use ron_reboot::serde::from_str;
 use serde::Deserialize;
+use ron_reboot::test_util::unwrap_display;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct MyStruct {
@@ -14,7 +17,7 @@ struct MyStruct {
 #[test]
 fn flattened_struct_support() {
     assert_eq!(
-        from_str::<MyStruct>(
+        unwrap_display(from_str::<MyStruct>(
             r#"
 (
     foo: false,
@@ -23,8 +26,7 @@ fn flattened_struct_support() {
     extension_baz: true,
 )
         "#
-        )
-        .unwrap(),
+        )),
         MyStruct {
             foo: false,
             bar: "bar".to_string(),
