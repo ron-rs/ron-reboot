@@ -164,7 +164,7 @@ fn decimal(input: Input) -> IResultLookahead<Decimal> {
 
 fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
     let pair = pair(
-        cut(terminated(spanned(ident), cut(one_char(':')))),
+        lookahead(terminated(spanned(ident), one_char(':'))),
         spanned(expr),
     );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
@@ -202,7 +202,7 @@ pub fn r#struct(input: Input) -> IResultLookahead<Struct> {
 }
 
 fn key_val_pair(input: Input) -> IResultLookahead<KeyValue<Expr>> {
-    let pair = pair(terminated(spanned(expr), cut(one_char(':'))), spanned(expr));
+    let pair = pair(terminated(lookahead(spanned(expr)), cut(one_char(':'))), spanned(expr));
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
 
@@ -221,7 +221,7 @@ pub fn list(input: Input) -> IResultLookahead<List> {
         "list",
         block(
             '[',
-            map(ws(comma_list0(lookahead(expr))), |elements| List { elements }),
+            map(ws(comma_list0(|input| lookahead(expr)(input))), |elements| List { elements }),
             ']',
         ),
     )(input)
@@ -480,6 +480,13 @@ mod tests {
                 UnsignedInteger::new(2).to_expr()
             ])
         );
+        // TODO: find out what lookahead is missing
+        assert_eq!(
+            eval!(list, "[1,]"),
+            List::new_test(vec![
+                UnsignedInteger::new(1).to_expr(),
+            ])
+        );
         assert_eq!(
             eval!(list, "[ 1, 2, ]"),
             List::new_test(vec![
@@ -488,6 +495,12 @@ mod tests {
             ])
         );
         assert_eq!(eval!(list, "[  ]"), List::new_test(vec![]));
+    }
+
+    #[test]
+    fn lists_inner() {
+        assert_eq!(
+            eval!(comma_list0(|input| lookahead(expr)(input)), "1,"), vec![Spanned::new_test(UnsignedInteger::new(1).to_expr())]);
     }
 
     #[test]
@@ -568,11 +581,16 @@ mod tests {
 
     #[test]
     fn excl_mark() {
-        eval!(r#struct, r#"Example(
+        let err = eval!(@result r#struct, r#"Example(
     xyz: Asdf(
         x: 4, yalala: !
     ),
-)"#);
+)"#).unwrap_err();
+        assert_eq!(format!("{}", err), r#"could not match "struct" at 1:1 (`E`) because
+could not match "expression" at 2:11 (`A`) because
+could not match "struct" at 2:11 (`A`) because
+could not match "expression" at 3:24 (`!`) because
+    expected one of an ascii letter or '_' at 3:24 (`!`)"#);
     }
 
     #[test]

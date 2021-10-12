@@ -178,7 +178,7 @@ where
         loop {
             let len = i.len();
             match f(i) {
-                Err(InputParseErr::Fatal(_)) => return Ok((i, acc)),
+                Err(InputParseErr::Recoverable(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
                     // infinite loop check: the parser must always consume
@@ -385,15 +385,24 @@ pub fn comma_list0<'a, F: 'a, O: 'a>(
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
-    let with_trailing = many0(terminated(spanned(f.clone()), one_char(',')));
+    let with_trailing = many0(terminated(spanned(f.clone()), lookahead(one_char(','))));
 
     map(
-        pair(with_trailing, opt(spanned(f))),
+        pair(with_trailing, opt( spanned(f))),
         |(mut list, last): (Vec<_>, Option<_>)| {
             list.extend(last);
             list
         },
     )
+}
+
+pub fn comma_list0_lookahead<'a, F: 'a, O: std::fmt::Debug + 'a>(
+    f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+    where
+        F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
+{
+    comma_list0(move |input| lookahead(f.clone())(input))
 }
 
 pub fn comma_list1<'a, F: 'a, O: 'a>(
@@ -418,6 +427,31 @@ where
     )
 }
 
+
+pub fn comma_list1_lookahead<'a, F: 'a, O: 'a>(
+    f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+    where
+        F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
+{
+    comma_list1(move |input| lookahead(f.clone())(input))
+}
+
+pub fn dbg<'a, F: 'a, O: std::fmt::Debug + 'a>(
+    s: &'static str,
+    mut f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
+    where
+        F: FnMut(Input<'a>) -> IResultLookahead<O>,
+{
+    move |input| {
+        let res = f(input);
+        println!("{}: {:?}", s, res);
+
+        res
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,41 +459,41 @@ mod tests {
 
     #[test]
     fn test_comma_list0() {
-        assert_eq!(eval!(comma_list0(tag("a")), "").len(), 0);
-        assert_eq!(eval!(comma_list0(tag("a")), "a").len(), 1);
-        assert_eq!(eval!(comma_list0(tag("a")), "a,").len(), 1);
-        assert_eq!(eval!(comma_list0(tag("a")), "a,a").len(), 2);
-        assert_eq!(eval!(comma_list0(tag("a")), "a,a,").len(), 2);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "").len(), 0);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a").len(), 1);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a,").len(), 1);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a,a").len(), 2);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a,a,").len(), 2);
     }
 
     #[test]
     fn test_comma_list0_ws() {
-        assert_eq!(eval!(comma_list0(tag("a")), " a ").len(), 1);
-        assert_eq!(eval!(comma_list0(tag("a")), " a ,").len(), 1);
-        assert_eq!(eval!(comma_list0(tag("a")), "a , a ").len(), 2);
-        assert_eq!(eval!(comma_list0(tag("a")), "a , a ,").len(), 2);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), " a ").len(), 1);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), " a ,").len(), 1);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a , a ").len(), 2);
+        assert_eq!(eval!(comma_list0_lookahead(tag("a")), "a , a ,").len(), 2);
     }
 
     #[test]
     fn test_comma_list1() {
-        assert!(eval!(@result comma_list1(tag("a")), "").is_err());
-        assert!(eval!(@result comma_list1(tag("a")), ",").is_err());
-        assert_eq!(eval!(comma_list1(tag("a")), "a").len(), 1);
-        assert_eq!(eval!(comma_list1(tag("a")), "a,").len(), 1);
-        assert_eq!(eval!(comma_list1(tag("a")), "a,a").len(), 2);
-        assert_eq!(eval!(comma_list1(tag("a")), "a,a,").len(), 2);
-        assert_eq!(eval!(comma_list1(tag("a")), "a,a,a").len(), 3);
-        assert_eq!(eval!(comma_list1(tag("a")), "a,a,a,").len(), 3);
+        assert!(eval!(@result comma_list1_lookahead(tag("a")), "").is_err());
+        assert!(eval!(@result comma_list1_lookahead(tag("a")), ",").is_err());
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a").len(), 1);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a,").len(), 1);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a,a").len(), 2);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a,a,").len(), 2);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a,a,a").len(), 3);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a,a,a,").len(), 3);
     }
 
     #[test]
     fn test_comma_list1_ws() {
-        assert_eq!(eval!(comma_list1(tag("a")), " a ").len(), 1);
-        assert_eq!(eval!(comma_list1(tag("a")), " a , ").len(), 1);
-        assert_eq!(eval!(comma_list1(tag("a")), " a , a ").len(), 2);
-        assert_eq!(eval!(comma_list1(tag("a")), " a , a ,").len(), 2);
-        assert_eq!(eval!(comma_list1(tag("a")), " a , a , a ").len(), 3);
-        assert_eq!(eval!(comma_list1(tag("a")), "a , a , a ,").len(), 3);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a ").len(), 1);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , ").len(), 1);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a ").len(), 2);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a ,").len(), 2);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a , a ").len(), 3);
+        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a , a , a ,").len(), 3);
     }
 
     #[test]
