@@ -272,7 +272,7 @@ fn attribute_enable(input: Input) -> IResultLookahead<Attribute> {
 
 pub fn attribute(input: Input) -> IResultLookahead<Attribute> {
     let start = preceded(
-        preceded(one_char('#'), ws(one_char('!'))),
+        preceded(lookahead(one_char('#')), ws(one_char('!'))),
         ws(one_char('[')),
     );
     let end = one_char(']');
