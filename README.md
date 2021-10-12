@@ -34,7 +34,7 @@ An abstract syntax tree (AST)...
 
 | Goal                                             | Status                                         |
 |--------------------------------------------------|------------------------------------------------|
-| Parser generating AST                            | :hourglass_flowing_sand: working, 85% complete |
+| Parser generating AST                            | :hourglass_flowing_sand: working, 90% complete |
 | Replace nom combinators                          | :heavy_check_mark: done                        |
 | Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                 |
 | Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 70% complete |
