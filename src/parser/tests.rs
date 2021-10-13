@@ -3,6 +3,7 @@ use crate::{
         ast::{
             Attribute, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger,
         },
+        combinators::comma_list0,
         *,
     },
     test_util::eval,

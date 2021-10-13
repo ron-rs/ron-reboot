@@ -130,25 +130,28 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     // Copy input and discard its offset ("peek")
     let (_, expr_class): (Input, ExprClass) = ExprClass::parse(input)?;
 
+    // We could just directly try parsing all of these variants without determining an expr class
+    // beforehand. However, for error collection & possibly performance reasons this seems to be
+    // the better solution right now.
     match expr_class {
         ExprClass::StructTuple => cut(alt2(
-            map(containers::r#struct, Expr::Struct),
-            map(containers::tuple, Expr::Tuple),
+            map(r#struct, Expr::Struct),
+            map(tuple, Expr::Tuple),
         ))(input),
-        ExprClass::Map => map(containers::rmap, Expr::Map)(input),
+        ExprClass::Map => map(rmap, Expr::Map)(input),
         ExprClass::StrString => alt2(
             map(lookahead(unescaped_str), Expr::Str),
             map(escaped_string, Expr::String),
         )(input),
-        ExprClass::List => map(containers::list, Expr::List)(input),
-        ExprClass::Bool => map(primitive::bool, Expr::Bool)(input),
+        ExprClass::List => map(list, Expr::List)(input),
+        ExprClass::Bool => map(bool, Expr::Bool)(input),
         ExprClass::Signed => map(signed_integer, SignedInteger::to_expr)(input),
         ExprClass::Dec => map(decimal, Expr::Decimal)(input),
         ExprClass::UnsignedDec => alt2(
             map(unsigned_integer, UnsignedInteger::to_expr),
             map(decimal, Expr::Decimal),
         )(input),
-        ExprClass::LeadingIdent => map(containers::r#struct, Expr::Struct)(input),
+        ExprClass::LeadingIdent => map(r#struct, Expr::Struct)(input),
     }
 }
 
