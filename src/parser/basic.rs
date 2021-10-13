@@ -1,5 +1,7 @@
-use crate::parser::{BaseErrorKind, combinators, ErrorTree, Expectation, Input, InputParseErr, IResultLookahead, util};
-use crate::parser::char_categories::is_ws;
+use crate::parser::{
+    char_categories::is_ws, combinators, util, BaseErrorKind, ErrorTree, Expectation,
+    IResultLookahead, Input, InputParseErr,
+};
 
 pub fn multispace0(input: Input) -> IResultLookahead<Input> {
     combinators::take_while(is_ws)(input)

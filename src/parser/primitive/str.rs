@@ -1,6 +1,8 @@
-use crate::parser::{Input, IResultLookahead};
-use crate::parser::basic::tag;
-use crate::parser::combinators::{delimited, map, take_while};
+use crate::parser::{
+    basic::tag,
+    combinators::{delimited, map, take_while},
+    IResultLookahead, Input,
+};
 
 fn inner_str(input: Input) -> IResultLookahead<&str> {
     map(take_while(|c| c != '"' && c != '\\'), |x: Input| {

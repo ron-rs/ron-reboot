@@ -1,8 +1,6 @@
-use crate::{
-    parser::{
-        error::{ErrorTree, Expectation},
-        Input, InputParseErr, IResultLookahead, OutputResult,
-    },
+use crate::parser::{
+    error::{ErrorTree, Expectation},
+    IResultLookahead, Input, InputParseErr, OutputResult,
 };
 
 #[inline]
@@ -25,8 +23,8 @@ pub fn dbg<'a, F: 'a, O: std::fmt::Debug + 'a>(
     s: &'static str,
     mut f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
-    where
-        F: FnMut(Input<'a>) -> IResultLookahead<O>,
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     move |input| {
         let res = f(input);

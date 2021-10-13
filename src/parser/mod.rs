@@ -5,20 +5,18 @@ use ast::{
     Spanned, Struct, UnsignedInteger,
 };
 use basic::{multispace0, one_char, one_of_chars, one_of_tags, tag};
-use combinators::{alt2, comma_list0, comma_list1, context, cut, delimited, lookahead, many0, map, map_res, opt, pair, preceded, recognize, take1_if, take_while, terminated};
-use primitive::{ident, number, str};
-pub use primitive::string::parse_string as string;
-
-use crate::{
-    parser::{
-        char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
-        input::position,
-    },
+use combinators::{
+    alt2, comma_list0, comma_list1, context, cut, delimited, lookahead, many0, map, map_res, opt,
+    pair, preceded, recognize, take1_if, take_while, terminated,
 };
 
 pub use self::{
     error::{BaseErrorKind, ErrorTree, Expectation, InputParseErr, InputParseError},
     input::{Input, Location, Offset},
+};
+use crate::parser::{
+    char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
+    input::position,
 };
 
 //pub type IResultFatal<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
@@ -45,9 +43,13 @@ mod input;
 mod primitive;
 #[cfg(test)]
 pub mod tests;
-
 /// Utility functions for parsing
 mod util;
+
+pub use self::{
+    primitive::{signed_integer, unsigned_integer, decimal, bool, unescaped_str, escaped_string},
+    containers::{list, rmap, r#struct, tuple}
+};
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {
     one_of_tags(
@@ -62,7 +64,10 @@ fn attribute_enable(input: Input) -> IResultLookahead<Attribute> {
 
     delimited(
         start,
-        map(combinators::spanned(comma_list1(extension_name)), Attribute::Enable),
+        map(
+            combinators::spanned(comma_list1(extension_name)),
+            Attribute::Enable,
+        ),
         end,
     )(input)
 }
@@ -74,7 +79,10 @@ pub fn attribute(input: Input) -> IResultLookahead<Attribute> {
     );
     let end = one_char(']');
 
-    context("attribute", delimited(start, combinators::ws(attribute_enable), end))(input)
+    context(
+        "attribute",
+        delimited(start, combinators::ws(attribute_enable), end),
+    )(input)
 }
 
 #[derive(Clone, Debug)]
@@ -135,19 +143,22 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     let (_, expr_class): (Input, ExprClass) = ExprClass::parse(input)?;
 
     match expr_class {
-        ExprClass::StructTuple => cut(alt2(map(containers::r#struct, Expr::Struct), map(containers::tuple, Expr::Tuple)))(input),
+        ExprClass::StructTuple => cut(alt2(
+            map(containers::r#struct, Expr::Struct),
+            map(containers::tuple, Expr::Tuple),
+        ))(input),
         ExprClass::Map => map(containers::rmap, Expr::Map)(input),
         ExprClass::StrString => alt2(
-            map(lookahead(str::unescaped_str), Expr::Str),
-            map(string, Expr::String),
+            map(lookahead(unescaped_str), Expr::Str),
+            map(escaped_string, Expr::String),
         )(input),
         ExprClass::List => map(containers::list, Expr::List)(input),
         ExprClass::Bool => map(primitive::bool, Expr::Bool)(input),
-        ExprClass::Signed => map(number::signed_integer, SignedInteger::to_expr)(input),
-        ExprClass::Dec => map(number::decimal, Expr::Decimal)(input),
+        ExprClass::Signed => map(signed_integer, SignedInteger::to_expr)(input),
+        ExprClass::Dec => map(decimal, Expr::Decimal)(input),
         ExprClass::UnsignedDec => alt2(
-            map(number::unsigned, UnsignedInteger::to_expr),
-            map(number::decimal, Expr::Decimal),
+            map(unsigned_integer, UnsignedInteger::to_expr),
+            map(decimal, Expr::Decimal),
         )(input),
         ExprClass::LeadingIdent => map(containers::r#struct, Expr::Struct)(input),
     }
@@ -159,7 +170,10 @@ pub fn expr(input: Input) -> IResultLookahead<Expr> {
 
 fn ron_inner(input: Input) -> IResultLookahead<Ron> {
     map(
-        pair(many0(combinators::spanned(attribute)), combinators::spanned(expr)),
+        pair(
+            many0(combinators::spanned(attribute)),
+            combinators::spanned(expr),
+        ),
         |(attributes, expr)| Ron { attributes, expr },
     )(input)
 }

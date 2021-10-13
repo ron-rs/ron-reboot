@@ -1,7 +1,11 @@
-use crate::parser::{BaseErrorKind, basic, ErrorTree, Expectation, Input, InputParseErr, InputParseError, IResultLookahead, OutputResult, util};
-use crate::parser::ast::Spanned;
-use crate::parser::basic::{multispace0, one_char};
-use crate::parser::input::position;
+use crate::parser::{
+    ast::Spanned,
+    basic,
+    basic::{multispace0, one_char},
+    input::position,
+    util, BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
+    InputParseError, OutputResult,
+};
 
 pub fn delimited<'a, F, G, H, O, OI1, OI2>(
     first: F,
@@ -126,7 +130,7 @@ where
         match f(input) {
             Ok((i, o)) => Ok((i, Some(o))),
             Err(InputParseErr::Recoverable(_)) => Ok((i, None)),
-            Err(e) =>Err(e),
+            Err(e) => Err(e),
         }
     }
 }
@@ -300,10 +304,13 @@ pub fn comma_list0<'a, F: 'a, O: 'a>(
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
-    let with_trailing = many0(terminated(spanned(f.clone()), lookahead(basic::one_char(','))));
+    let with_trailing = many0(terminated(
+        spanned(f.clone()),
+        lookahead(basic::one_char(',')),
+    ));
 
     map(
-        pair(with_trailing, opt( spanned(f))),
+        pair(with_trailing, opt(spanned(f))),
         |(mut list, last): (Vec<_>, Option<_>)| {
             list.extend(last);
             list
@@ -315,8 +322,8 @@ where
 pub fn comma_list0_lookahead<'a, F: 'a, O: std::fmt::Debug + 'a>(
     f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
-    where
-        F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
     comma_list0(move |input| lookahead(f.clone())(input))
 }
@@ -347,19 +354,16 @@ where
 pub fn comma_list1_lookahead<'a, F: 'a, O: 'a>(
     f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
-    where
-        F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
     comma_list1(move |input| lookahead(f.clone())(input))
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::parser::basic::tag;
-    use crate::test_util::eval;
-
     use super::*;
+    use crate::{parser::basic::tag, test_util::eval};
 
     #[test]
     fn test_comma_list0() {
@@ -396,8 +400,14 @@ mod tests {
         assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , ").len(), 1);
         assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a ").len(), 2);
         assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a ,").len(), 2);
-        assert_eq!(eval!(comma_list1_lookahead(tag("a")), " a , a , a ").len(), 3);
-        assert_eq!(eval!(comma_list1_lookahead(tag("a")), "a , a , a ,").len(), 3);
+        assert_eq!(
+            eval!(comma_list1_lookahead(tag("a")), " a , a , a ").len(),
+            3
+        );
+        assert_eq!(
+            eval!(comma_list1_lookahead(tag("a")), "a , a , a ,").len(),
+            3
+        );
     }
 
     #[test]
@@ -443,7 +453,7 @@ mod tests {
                 take_while_m_n(0, 3, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             3
         );
 
@@ -452,7 +462,7 @@ mod tests {
                 take_while_m_n(0, 0, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             0
         );
 
@@ -461,7 +471,7 @@ mod tests {
                 take_while_m_n(0, 1, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             1
         );
 
@@ -470,7 +480,7 @@ mod tests {
                 take_while_m_n(2, 4, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             4
         );
     }
@@ -482,7 +492,7 @@ mod tests {
                 take_while_m_n(0, 5, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             4
         );
 
@@ -491,7 +501,7 @@ mod tests {
                 take_while_m_n(4, 4, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             4
         );
 
@@ -500,7 +510,7 @@ mod tests {
                 take_while_m_n(0, 5, |_c| false, Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             0
         );
 
@@ -509,7 +519,7 @@ mod tests {
                 take_while_m_n(0, 1, |_c| false, Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             0
         );
 
@@ -518,7 +528,7 @@ mod tests {
                 take_while_m_n(1, 4, |c| c == 'a', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             1
         );
     }
@@ -530,7 +540,7 @@ mod tests {
                 take_while_m_n(3, 6, |c| c == 'a' || c == 'b', Expectation::Alpha),
                 "ababcabab"
             )
-                .len(),
+            .len(),
             4
         );
 
@@ -585,4 +595,3 @@ where
         /*TODO: conditional cut*/ (one_char(end_tag)),
     )
 }
-

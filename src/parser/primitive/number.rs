@@ -1,8 +1,15 @@
-use crate::parser::{ast, BaseErrorKind, ErrorTree, Expectation, Input, InputParseErr, IResultLookahead, OutputResult};
-use crate::parser::ast::{Decimal, Sign, SignedInteger, UnsignedInteger};
-use crate::parser::basic::{one_char, one_of_chars};
-use crate::parser::char_categories::{is_digit, is_digit_first};
-use crate::parser::combinators::{alt2, context, lookahead, map, map_res, opt, pair, preceded, recognize, take1_if, take_while, terminated};
+use std::str::FromStr;
+use crate::parser::{
+    ast,
+    ast::{Decimal, Sign, SignedInteger, UnsignedInteger},
+    basic::{one_char, one_of_chars},
+    char_categories::{is_digit, is_digit_first},
+    combinators::{
+        alt2, context, lookahead, map, map_res, opt, pair, preceded, recognize, take1_if,
+        take_while, terminated,
+    },
+    BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr, OutputResult,
+};
 
 pub fn sign(input: Input) -> IResultLookahead<Sign> {
     one_of_chars("+-", &[Sign::Positive, Sign::Negative])(input)
@@ -31,7 +38,7 @@ fn decimal_unsigned_no_start_with_zero(input: Input) -> IResultLookahead<u64> {
     )(input)
 }
 
-pub fn unsigned(input: Input) -> IResultLookahead<UnsignedInteger> {
+pub fn unsigned_integer(input: Input) -> IResultLookahead<UnsignedInteger> {
     map(decimal_unsigned_no_start_with_zero, |number| {
         UnsignedInteger { number }
     })(input)
@@ -49,7 +56,7 @@ pub fn integer(input: Input) -> IResultLookahead<ast::Integer> {
         "integer",
         alt2(
             map(signed_integer, ast::Integer::Signed),
-            map(unsigned, ast::Integer::Unsigned),
+            map(unsigned_integer, ast::Integer::Unsigned),
         ),
     )(input)
 }
@@ -96,4 +103,67 @@ fn decimal_frac(input: Input) -> IResultLookahead<Decimal> {
 
 pub fn decimal(input: Input) -> IResultLookahead<Decimal> {
     context("decimal", alt2(decimal_frac, decimal_std))(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::eval;
+    use crate::parser::expr;
+
+    #[test]
+    fn exprs_int() {
+        for input in ["-4123", "111", "+821"] {
+            assert_eq!(eval!(integer, input).to_expr(), eval!(expr, input));
+        }
+    }
+
+    #[test]
+    fn signs() {
+        assert_eq!(eval!(sign, "+"), Sign::Positive);
+        assert_eq!(eval!(sign, "-"), Sign::Negative);
+        assert!(eval!(@result sign, "*").is_err());
+    }
+
+    #[test]
+    fn integers() {
+        assert_eq!(
+            eval!(integer, "-1"),
+            ast::Integer::new_test(Some(Sign::Negative), 1)
+        );
+        assert_eq!(eval!(integer, "123"), ast::Integer::new_test(None, 123));
+        assert_eq!(
+            eval!(integer, "+123"),
+            ast::Integer::new_test(Some(Sign::Positive), 123)
+        );
+    }
+
+    #[test]
+    fn decimals() {
+        assert_eq!(
+            eval!(decimal, "-1.0"),
+            Decimal::new(Some(Sign::Negative), Some(1), 0, None)
+        );
+        assert_eq!(
+            eval!(decimal, "123.00"),
+            Decimal::new(None, Some(123), 0, None)
+        );
+        assert_eq!(
+            eval!(decimal, "+1.23e+2"),
+            Decimal::new(
+                Some(Sign::Positive),
+                Some(1),
+                23,
+                Some((Some(Sign::Positive), 2))
+            )
+        );
+        assert_eq!(
+            eval!(decimal, ".123e3"),
+            Decimal::new(None, None, 123, Some((None, 3)))
+        );
+        assert_eq!(
+            eval!(decimal, ".123E-3"),
+            Decimal::new(None, None, 123, Some((Some(Sign::Negative), 3)))
+        );
+    }
 }
