@@ -1,5 +1,7 @@
-use crate::parser::{BaseErrorKind, ErrorTree, Expectation, Input, InputParseErr, InputParseError, IResultLookahead, OutputResult, spanned, util};
+use crate::parser::{BaseErrorKind, basic, ErrorTree, Expectation, Input, InputParseErr, InputParseError, IResultLookahead, OutputResult, util};
 use crate::parser::ast::Spanned;
+use crate::parser::basic::{multispace0, one_char};
+use crate::parser::input::position;
 
 pub fn delimited<'a, F, G, H, O, OI1, OI2>(
     first: F,
@@ -298,7 +300,7 @@ pub fn comma_list0<'a, F: 'a, O: 'a>(
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
-    let with_trailing = many0(terminated(spanned(f.clone()), lookahead(util::one_char(','))));
+    let with_trailing = many0(terminated(spanned(f.clone()), lookahead(basic::one_char(','))));
 
     map(
         pair(with_trailing, opt( spanned(f))),
@@ -309,6 +311,7 @@ where
     )
 }
 
+#[cfg(test)]
 pub fn comma_list0_lookahead<'a, F: 'a, O: std::fmt::Debug + 'a>(
     f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
@@ -324,7 +327,7 @@ pub fn comma_list1<'a, F: 'a, O: 'a>(
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
-    let comma = util::one_char(',');
+    let comma = basic::one_char(',');
     map(
         pair(
             spanned(f.clone()),
@@ -340,7 +343,7 @@ where
     )
 }
 
-
+#[cfg(test)]
 pub fn comma_list1_lookahead<'a, F: 'a, O: 'a>(
     f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
@@ -353,8 +356,8 @@ pub fn comma_list1_lookahead<'a, F: 'a, O: 'a>(
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::basic::tag;
     use crate::test_util::eval;
-    use crate::parser::util::tag;
 
     use super::*;
 
@@ -544,5 +547,42 @@ mod tests {
                 .is_err()
         );
     }
+}
+
+pub fn spanned<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Input<'a>) -> IResultLookahead<Spanned<O>>
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
+    O: 'a,
+{
+    ws(move |input: Input<'a>| {
+        let (input, start) = position(input)?;
+        let (input, value) = inner(input)?;
+        let (input, end) = position(input)?;
+
+        Ok((input, Spanned { start, value, end }))
+    })
+}
+
+pub fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
+{
+    delimited(multispace0, inner, multispace0)
+}
+
+pub fn block<'a, F: 'a, O>(
+    start_tag: char,
+    inner: F,
+    end_tag: char,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<O>,
+{
+    #[allow(unused_parens)]
+    delimited(
+        one_char(start_tag),
+        inner,
+        /*TODO: conditional cut*/ (one_char(end_tag)),
+    )
 }
 

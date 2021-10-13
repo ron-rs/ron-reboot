@@ -1,10 +1,8 @@
 use crate::parser::{
     BaseErrorKind,
-    ErrorTree, Expectation, Input, InputParseErr, IResultLookahead, util::{
-        base_err_res,
-        multispace1, one_char, one_of_chars,
-    },
+    ErrorTree, Expectation, Input, InputParseErr, IResultLookahead, util::base_err_res,
 };
+use crate::parser::basic::{multispace1, one_char, one_of_chars};
 use crate::parser::combinators::{alt2, context, cut, delimited, fold_many0, lookahead, map, map_res, preceded, take_while, take_while_m_n};
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
