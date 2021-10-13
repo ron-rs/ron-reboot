@@ -1,9 +1,10 @@
-
 use crate::{
-    parser::*,
-    parser::ast::{
-        Attribute, Decimal, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct,
-        UnsignedInteger,
+    parser::{
+        ast::{
+            Attribute, Decimal, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct,
+            UnsignedInteger,
+        },
+        *,
     },
     test_util::eval,
 };
@@ -67,7 +68,10 @@ fn strings() {
         "Newlines are\n great!"
     );
     assert_eq!(eval!(escaped_string, r#""So is /😂\\""#), "So is /😂\\");
-    assert_eq!(eval!(escaped_string, r#""So is \u{00AC}""#), "So is \u{00AC}");
+    assert_eq!(
+        eval!(escaped_string, r#""So is \u{00AC}""#),
+        "So is \u{00AC}"
+    );
 }
 
 #[test]
@@ -165,7 +169,10 @@ fn untagged_structs() {
     assert_eq!(eval!(r#struct, "(x:-3,y:4)"), basic_struct);
     assert_eq!(eval!(r#struct, "(x:-3,y:4,)"), basic_struct);
     assert_eq!(eval!(r#struct, "(x:-3,y:4,  )"), basic_struct);
-    assert_eq!(eval!(r#struct, "(\t  x: -3, y       : 4\n\n)"), basic_struct);
+    assert_eq!(
+        eval!(r#struct, "(\t  x: -3, y       : 4\n\n)"),
+        basic_struct
+    );
 }
 
 #[test]

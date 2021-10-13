@@ -47,8 +47,8 @@ pub mod tests;
 mod util;
 
 pub use self::{
-    primitive::{signed_integer, unsigned_integer, decimal, bool, unescaped_str, escaped_string},
-    containers::{list, rmap, r#struct, tuple}
+    containers::{list, r#struct, rmap, tuple},
+    primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},
 };
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {

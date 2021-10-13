@@ -52,5 +52,4 @@ mod tests {
             Ident("doesany1usenumbers")
         );
     }
-
 }

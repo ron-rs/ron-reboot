@@ -1,4 +1,5 @@
 use std::str::FromStr;
+
 use crate::parser::{
     ast,
     ast::{Decimal, Sign, SignedInteger, UnsignedInteger},
@@ -108,8 +109,7 @@ pub fn decimal(input: Input) -> IResultLookahead<Decimal> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::eval;
-    use crate::parser::expr;
+    use crate::{parser::expr, test_util::eval};
 
     #[test]
     fn exprs_int() {

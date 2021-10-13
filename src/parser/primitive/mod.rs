@@ -5,8 +5,8 @@ pub mod number;
 mod str;
 mod string;
 
-pub use self::ident::ident;
 pub use self::{
+    ident::ident,
     number::{decimal, signed_integer, unsigned_integer},
     str::unescaped_str,
     string::parse_string as escaped_string,
