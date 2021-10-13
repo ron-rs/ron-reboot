@@ -19,6 +19,7 @@ pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T
     )))
 }
 
+#[cfg(never)]
 pub fn dbg<'a, F: 'a, O: std::fmt::Debug + 'a>(
     s: &'static str,
     mut f: F,

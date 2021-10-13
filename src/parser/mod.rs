@@ -1,23 +1,16 @@
-use std::str::FromStr;
-
-use ast::{
-    Attribute, Decimal, Expr, Extension, Ident, KeyValue, List, Map, Ron, Sign, SignedInteger,
-    Spanned, Struct, UnsignedInteger,
-};
-use basic::{multispace0, one_char, one_of_chars, one_of_tags, tag};
+use ast::{Attribute, Expr, Extension, Ron, SignedInteger, UnsignedInteger};
+use basic::{one_char, one_of_chars, one_of_tags, tag};
 use combinators::{
-    alt2, comma_list0, comma_list1, context, cut, delimited, lookahead, many0, map, map_res, opt,
-    pair, preceded, recognize, take1_if, take_while, terminated,
+    alt2, comma_list1, context, cut, delimited, lookahead, many0, map, pair, preceded, take1_if,
 };
 
 pub use self::{
+    containers::{list, r#struct, rmap, tuple},
     error::{BaseErrorKind, ErrorTree, Expectation, InputParseErr, InputParseError},
     input::{Input, Location, Offset},
+    primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},
 };
-use crate::parser::{
-    char_categories::{is_digit, is_digit_first, is_ident_first_char, is_ident_other_char},
-    input::position,
-};
+use crate::parser::char_categories::is_ident_first_char;
 
 //pub type IResultFatal<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
 pub type IResultLookahead<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
@@ -45,11 +38,6 @@ mod primitive;
 pub mod tests;
 /// Utility functions for parsing
 mod util;
-
-pub use self::{
-    containers::{list, r#struct, rmap, tuple},
-    primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},
-};
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {
     one_of_tags(

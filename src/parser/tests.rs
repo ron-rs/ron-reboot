@@ -1,8 +1,7 @@
 use crate::{
     parser::{
         ast::{
-            Attribute, Decimal, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct,
-            UnsignedInteger,
+            Attribute, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger,
         },
         *,
     },

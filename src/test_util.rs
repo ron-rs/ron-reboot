@@ -1,3 +1,5 @@
+use crate::parser::{Input, InputParseErr};
+
 #[cfg(test)]
 macro_rules! eval {
     ($parser:expr,$input:expr) => {
@@ -10,8 +12,6 @@ macro_rules! eval {
 
 #[cfg(test)]
 pub(crate) use eval;
-
-use crate::parser::{Input, InputParseErr};
 
 pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
     match r {
