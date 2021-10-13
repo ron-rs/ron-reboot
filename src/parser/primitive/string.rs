@@ -1,10 +1,11 @@
 use crate::parser::{
-    util::{
-        alt2, base_err_res, context, cut, delimited, fold_many0, lookahead, map, map_res,
-        multispace1, one_char, one_of_chars, preceded, take_while, take_while_m_n,
+    BaseErrorKind,
+    ErrorTree, Expectation, Input, InputParseErr, IResultLookahead, util::{
+        base_err_res,
+        multispace1, one_char, one_of_chars,
     },
-    BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
 };
+use crate::parser::combinators::{alt2, context, cut, delimited, fold_many0, lookahead, map, map_res, preceded, take_while, take_while_m_n};
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
