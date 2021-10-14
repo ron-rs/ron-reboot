@@ -37,14 +37,14 @@ An abstract syntax tree (AST)...
 | Parser generating AST                            | :hourglass_flowing_sand: working, 90% complete |
 | Replace nom combinators                          | :heavy_check_mark: done                        |
 | Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                 |
-| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 70% complete |
+| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 90% complete |
 | `ron-edit` (format & comments preserving writer) | :x: to be done                                 |
 
 ## TODO list
 
 * Add support for enums (unit and tuple variant)
 * Look at error handling wrt expression class
-* Implement deserialization of parsed numbers
 * Raw identifiers
 * Raw strings
 * Extensions
+* Comments

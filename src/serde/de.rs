@@ -68,7 +68,10 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             List(mut l) => visitor.visit_seq(SeqDeserializer {
                 iter: l.elements.iter_mut(),
             }),
-            Map(_) => todo!(),
+            Map(mut m) => visitor.visit_map(MapDeserializer {
+                iter: m.entries.value.iter_mut(),
+                value: None,
+            }),
             Struct(mut s) => visitor.visit_map(StructDeserializer {
                 iter: s.fields.value.iter_mut(),
                 value: None,
@@ -171,6 +174,66 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
         match self.iter.next().map(|s| &mut s.value) {
             Some(x) => {
                 let key = kseed.deserialize(IdentDeserializer { ident: &mut x.key })?;
+                let value = vseed.deserialize(RonDeserializer { expr: &mut x.value })?;
+
+                Ok(Some((key, value)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.iter.size_hint().0)
+    }
+}
+
+struct MapDeserializer<'a, 'de> {
+    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::KeyValue<'de, ast::Expr<'de>>>>,
+    value: Option<&'a mut ast::Spanned<'de, ast::Expr<'de>>>,
+}
+
+impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+    {
+        match self.iter.next().map(|s| &mut s.value) {
+            Some(x) => {
+                self.value = Some(&mut x.value);
+
+                seed.deserialize(RonDeserializer { expr: &mut x.key })
+                    .map(Some)
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        seed.deserialize(RonDeserializer {
+            expr: &mut self
+                .value
+                .take()
+                .expect("called next_value_seed before next_key_seed"),
+        })
+    }
+
+    fn next_entry_seed<K, V>(
+        &mut self,
+        kseed: K,
+        vseed: V,
+    ) -> Result<Option<(K::Value, V::Value)>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+        V: DeserializeSeed<'de>,
+    {
+        match self.iter.next().map(|s| &mut s.value) {
+            Some(x) => {
+                let key = kseed.deserialize(RonDeserializer { expr: &mut x.key })?;
                 let value = vseed.deserialize(RonDeserializer { expr: &mut x.value })?;
 
                 Ok(Some((key, value)))

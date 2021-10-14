@@ -1,3 +1,6 @@
+use std::{collections::HashMap, iter::FromIterator};
+use std::hash::Hash;
+
 use serde::Deserialize;
 
 use crate::{
@@ -5,7 +8,7 @@ use crate::{
     serde::from_str,
 };
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct MyStruct {
     x: bool,
     y: String,
@@ -29,6 +32,49 @@ fn structs() {
             x: false,
             y: "true".to_string()
         })
+    );
+}
+
+#[test]
+fn maps() {
+    assert_eq!(
+        from_str::<HashMap<String, String>>(
+            r#"
+{
+    "string\\ key": "1.2e3",
+    "this is": "a test",
+}"#
+        ),
+        Ok(HashMap::<String, String>::from_iter(vec![
+            ("string\\ key".to_owned(), "1.2e3".to_owned()),
+            ("this is".to_owned(), "a test".to_owned()),
+        ]))
+    );
+
+    assert_eq!(
+        from_str::<HashMap<MyStruct, String>>(
+            r#"
+{
+    (x: true, y: "a"): "a",
+    (x: false, y: "b"): "b",
+}"#
+        ),
+        Ok(HashMap::from_iter(vec![
+            (
+                MyStruct {
+                    x: true,
+                    y: "a".to_string()
+                },
+                "a".to_owned()
+            ),
+            (
+                MyStruct {
+                    x: false,
+                    y: "b".to_string()
+                },
+                "b".to_owned()
+            ),
+        ]))
     );
 }
 
