@@ -28,6 +28,12 @@ fn decimal_unsigned(input: Input) -> IResultLookahead<u64> {
     map_res(take_while(is_digit), parse_u64)(input)
 }
 
+fn fractional_part(input: Input) -> IResultLookahead<(u64, u16)> {
+    map_res(take_while(is_digit), |input| {
+        Ok((parse_u64(input)?, input.len() as u16))
+    })(input)
+}
+
 fn decimal_unsigned_no_start_with_zero(input: Input) -> IResultLookahead<u64> {
     map_res(
         recognize(preceded(
@@ -78,10 +84,12 @@ fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
         pair(
-            terminated(decimal_unsigned, one_char('.')),
-            pair(decimal_unsigned, decimal_exp),
+            terminated(decimal_unsigned, lookahead(one_char('.'))),
+            pair(fractional_part, decimal_exp),
         ),
-        |(whole, (fractional, exp))| Decimal::new(sign, Some(whole), fractional, exp),
+        |(whole, ((fractional, fractional_digits), exp))| {
+            Decimal::new(sign, Some(whole), fractional, fractional_digits, exp)
+        },
     )(input);
 
     x
@@ -91,11 +99,10 @@ fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
 fn decimal_frac(input: Input) -> IResultLookahead<Decimal> {
     // Need to create temp var for borrow checker
     let x = map(
-        preceded(
-            lookahead(one_char('.')),
-            pair(decimal_unsigned, decimal_exp),
-        ),
-        |(fractional, exp)| Decimal::new(None, None, fractional, exp),
+        preceded(lookahead(one_char('.')), pair(fractional_part, decimal_exp)),
+        |((fractional, fractional_digits), exp)| {
+            Decimal::new(None, None, fractional, fractional_digits, exp)
+        },
     )(input);
 
     x
@@ -108,7 +115,17 @@ pub fn decimal(input: Input) -> IResultLookahead<Decimal> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{parser::expr, test_util::eval};
+    use crate::{
+        parser::{ast::Expr, expr},
+        test_util::eval,
+    };
+
+    #[test]
+    fn exprs_decimals() {
+        for input in ["-41.23", "11.1", ".1E-4"] {
+            assert_eq!(Expr::Decimal(eval!(decimal, input)), eval!(expr, input));
+        }
+    }
 
     #[test]
     fn exprs_int() {
@@ -144,11 +161,11 @@ mod tests {
     fn decimals() {
         assert_eq!(
             eval!(decimal, "-1.0"),
-            Decimal::new(Some(Sign::Negative), Some(1), 0, None)
+            Decimal::new(Some(Sign::Negative), Some(1), 0, 1, None)
         );
         assert_eq!(
             eval!(decimal, "123.00"),
-            Decimal::new(None, Some(123), 0, None)
+            Decimal::new(None, Some(123), 0, 2, None)
         );
         assert_eq!(
             eval!(decimal, "+1.23e+2"),
@@ -156,16 +173,17 @@ mod tests {
                 Some(Sign::Positive),
                 Some(1),
                 23,
+                2,
                 Some((Some(Sign::Positive), 2))
             )
         );
         assert_eq!(
             eval!(decimal, ".123e3"),
-            Decimal::new(None, None, 123, Some((None, 3)))
+            Decimal::new(None, None, 123, 3, Some((None, 3)))
         );
         assert_eq!(
             eval!(decimal, ".123E-3"),
-            Decimal::new(None, None, 123, Some((Some(Sign::Negative), 3)))
+            Decimal::new(None, None, 123, 3, Some((Some(Sign::Negative), 3)))
         );
     }
 }

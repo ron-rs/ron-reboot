@@ -1,5 +1,6 @@
 use std::{
     fmt::{Display, Formatter},
+    ops::Add,
     slice::SliceIndex,
 };
 
@@ -11,8 +12,10 @@ pub enum Offset {
     Relative(usize),
 }
 
-impl Offset {
-    pub fn add(self, offset: usize) -> Self {
+impl Add<usize> for Offset {
+    type Output = Offset;
+
+    fn add(self, offset: usize) -> Self::Output {
         match self {
             Offset::Absolute(x) => Offset::Absolute(x + offset),
             _ => todo!(),
@@ -132,7 +135,7 @@ impl<'a> Input<'a> {
                 fragment: next_fragment,
             };
         }
-        let next_offset = self.offset.add(consumed_len);
+        let next_offset = self.offset + consumed_len;
 
         Input {
             offset: next_offset,

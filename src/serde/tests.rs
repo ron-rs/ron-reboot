@@ -66,6 +66,32 @@ fn struct_fail() {
  */
 
 #[test]
+fn floats() {
+    assert_eq!(from_str::<f64>("1.0"), Ok(1.0));
+    assert_eq!(from_str::<f64>("-3.14"), Ok(-3.14));
+    assert_eq!(from_str::<f64>("1.0e3"), Ok(1.0e3));
+    assert_eq!(from_str::<f64>(".001e3"), Ok(0.001e3));
+    assert_eq!(from_str::<f64>("+3.14"), Ok(3.14));
+}
+
+#[test]
+fn ints() {
+    assert_eq!(from_str::<i32>("-123"), Ok(-123));
+    assert_eq!(from_str::<i32>("+123"), Ok(123));
+    assert_eq!(from_str::<i32>("123"), Ok(123));
+    assert_eq!(
+        from_str::<u64>("18446744073709551615"),
+        Ok(18446744073709551615)
+    );
+    assert_eq!(
+        from_str::<i64>("9223372036854775807"),
+        Ok(9223372036854775807)
+    );
+    //assert_eq!(from_str::<i64>("-9223372036854775808"), Ok(-9223372036854775808));
+    // TODO fix
+}
+
+#[test]
 fn bools() {
     assert_eq!(from_str::<bool>("true"), Ok(true));
     assert_eq!(from_str::<bool>("false"), Ok(false));

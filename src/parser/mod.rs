@@ -80,8 +80,10 @@ pub enum ExprClass {
     StrString,
     List,
     Bool,
-    Signed,
+    /// Signed or Decimal
+    SignedDec,
     Dec,
+    /// Unsigned or Decimal
     UnsignedDec,
     LeadingIdent,
 }
@@ -97,8 +99,8 @@ impl ExprClass {
                 ExprClass::List,
                 ExprClass::Bool,
                 ExprClass::Bool,
-                ExprClass::Signed,
-                ExprClass::Signed,
+                ExprClass::SignedDec,
+                ExprClass::SignedDec,
                 ExprClass::Dec,
                 ExprClass::Dec,
                 ExprClass::UnsignedDec,
@@ -134,10 +136,9 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     // beforehand. However, for error collection & possibly performance reasons this seems to be
     // the better solution right now.
     match expr_class {
-        ExprClass::StructTuple => cut(alt2(
-            map(r#struct, Expr::Struct),
-            map(tuple, Expr::Tuple),
-        ))(input),
+        ExprClass::StructTuple => {
+            cut(alt2(map(r#struct, Expr::Struct), map(tuple, Expr::Tuple)))(input)
+        }
         ExprClass::Map => map(rmap, Expr::Map)(input),
         ExprClass::StrString => alt2(
             map(lookahead(unescaped_str), Expr::Str),
@@ -145,11 +146,14 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
         )(input),
         ExprClass::List => map(list, Expr::List)(input),
         ExprClass::Bool => map(bool, Expr::Bool)(input),
-        ExprClass::Signed => map(signed_integer, SignedInteger::to_expr)(input),
+        ExprClass::SignedDec => alt2(
+            map(decimal, Expr::Decimal),
+            map(signed_integer, SignedInteger::to_expr),
+        )(input),
         ExprClass::Dec => map(decimal, Expr::Decimal)(input),
         ExprClass::UnsignedDec => alt2(
-            map(unsigned_integer, UnsignedInteger::to_expr),
             map(decimal, Expr::Decimal),
+            map(unsigned_integer, UnsignedInteger::to_expr),
         )(input),
         ExprClass::LeadingIdent => map(r#struct, Expr::Struct)(input),
     }

@@ -90,6 +90,21 @@ pub enum Sign {
     Negative,
 }
 
+impl Sign {
+    pub fn into_i8(self) -> i8 {
+        self.into()
+    }
+}
+
+impl From<Sign> for i8 {
+    fn from(sign: Sign) -> i8 {
+        match sign {
+            Sign::Positive => 1,
+            Sign::Negative => -1,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct UnsignedInteger {
@@ -102,8 +117,18 @@ impl UnsignedInteger {
         UnsignedInteger { number }
     }
 
+    pub fn into_u64(self) -> u64 {
+        self.into()
+    }
+
     pub fn to_expr(self) -> Expr<'static> {
         Expr::Integer(Integer::Unsigned(self))
+    }
+}
+
+impl From<UnsignedInteger> for u64 {
+    fn from(u: UnsignedInteger) -> u64 {
+        u.number
     }
 }
 
@@ -125,6 +150,13 @@ impl SignedInteger {
     }
 }
 
+impl From<SignedInteger> for i64 {
+    fn from(s: SignedInteger) -> i64 {
+        // TODO: conversion to i64 doesn't work for 2^63 (which, with a negative sign is still in bounds)
+        s.sign.into_i8() as i64 * s.number as i64
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Integer {
@@ -141,6 +173,13 @@ impl Integer {
         }
     }
 
+    pub fn into_i64(self) -> i64 {
+        match self {
+            Integer::Signed(s) => s.into(),
+            Integer::Unsigned(u) => u.into_u64() as i64,
+        }
+    }
+
     #[cfg(test)]
     pub fn to_expr(self) -> Expr<'static> {
         Expr::Integer(self)
@@ -153,6 +192,7 @@ pub struct Decimal {
     pub sign: Option<Sign>,
     pub whole: Option<u64>,
     pub fractional: u64,
+    pub fractional_digits: u16,
     pub exponent: Option<(Option<Sign>, u16)>,
 }
 
@@ -161,14 +201,34 @@ impl Decimal {
         sign: Option<Sign>,
         whole: Option<u64>,
         fractional: u64,
+        fractional_digits: u16,
         exponent: Option<(Option<Sign>, u16)>,
     ) -> Self {
         Decimal {
             sign,
             whole,
             fractional,
+            fractional_digits,
             exponent,
         }
+    }
+}
+
+impl From<Decimal> for f64 {
+    fn from(d: Decimal) -> f64 {
+        let sign = d.sign.map(Into::into).unwrap_or(1i8);
+        let whole = d.whole.unwrap_or_default();
+
+        let (exp_sign, exp) = d.exponent.unwrap_or((None, 0));
+
+        let exp_sign = exp_sign.map(Into::into).unwrap_or(1i8);
+        let exp = exp as i32 * exp_sign as i32;
+
+        let mut f: f64 = sign as f64 * whole as f64;
+        f *= (10.0f64).powi(exp);
+        f += d.fractional as f64 * (10.0f64).powi(exp - d.fractional_digits as i32) * sign as f64;
+
+        f
     }
 }
 

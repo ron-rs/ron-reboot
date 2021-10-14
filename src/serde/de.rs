@@ -9,7 +9,10 @@ use serde::{
 //use crate::error::{ron_err, ErrorKind};
 use crate::{
     parser,
-    parser::{ast, ast::Expr::*},
+    parser::{
+        ast,
+        ast::{Expr::*, Integer},
+    },
 };
 
 // By convention, the public API of a Serde deserializer is one or more
@@ -70,10 +73,13 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                 iter: s.fields.value.iter_mut(),
                 value: None,
             }),
-            Integer(_) => todo!(),
+            Integer(i) => match i {
+                Integer::Signed(s) => visitor.visit_i64(s.into()),
+                Integer::Unsigned(u) => visitor.visit_u64(u.into()),
+            },
             Str(s) => visitor.visit_borrowed_str(s),
             String(s) => visitor.visit_string(s),
-            Decimal(_) => todo!(),
+            Decimal(d) => visitor.visit_f64(d.into()),
         }
     }
 
