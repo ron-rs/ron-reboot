@@ -204,9 +204,9 @@ fn excl_mark() {
     assert_eq!(
         format!("{}", err),
         r#"could not match "struct" at 1:1 (`E`) because
-could not match "expression" at 2:11 (`A`) because
-could not match "struct" at 2:11 (`A`) because
-could not match "expression" at 3:24 (`!`) because
-    expected one of an ascii letter or '_' at 3:24 (`!`)"#
+could not match "expression" at 2:10 (`A`) because
+could not match "struct" at 2:10 (`A`) because
+could not match "expression" at 3:23 (`!`) because
+    expected one of an ascii letter or '_' at 3:23 (`!`)"#
     );
 }

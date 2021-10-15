@@ -149,24 +149,33 @@ pub fn print_error(e: &Error) -> std::io::Result<()> {
                 let mut lines = file_content.lines().skip(start.line as usize - 1);
                 let start_line_string = start.line.to_string();
                 let start_line_padding = " ".repeat(max_line_col_width - start_line_string.len());
-                // The first line
-                writeln!(
-                    f,
-                    "{}{} |   {}",
-                    start_line_padding,
-                    start.line,
-                    lines.next().unwrap_or_default()
-                )?;
+
                 if start.line == end.line {
-                    // If it's just one line, mark the whole span with ^
+                    // The first line
+                    writeln!(
+                        f,
+                        "{}{} | {}",
+                        start_line_padding,
+                        start.line,
+                        lines.next().unwrap_or_default()
+                    )?;
+                    // it's just one line, mark the whole span with ^
                     writeln!(
                         f,
                         "{} | {}{}",
                         col_ws_rep,
-                        " ".repeat(start.column as usize),
+                        " ".repeat(start.column as usize - 1),
                         "^".repeat((end.column - start.column) as usize)
                     )?;
                 } else {
+                    // The first line
+                    writeln!(
+                        f,
+                        "{}{} |   {}",
+                        start_line_padding,
+                        start.line,
+                        lines.next().unwrap_or_default()
+                    )?;
                     writeln!(
                         f,
                         "{} |  {}^",
