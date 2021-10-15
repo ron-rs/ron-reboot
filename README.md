@@ -30,6 +30,36 @@ An abstract syntax tree (AST)...
 * allows reporting locations of syntax & type errors
 * can be reused by multiple deserializer implementations (`serde::Deserializer`, `our_own::Deserializer`, `ron-edit`)
 
+## Error reporting
+
+The old RON deserializer produced errors that were often hard to understand.
+`ron-reboot` is meant to change that; this is the output of a deserialization
+error as of 2021-10-15:
+
+```
+error: invalid type: boolean `true`, expected a string
+ --> string:3:9
+  |
+3 |       y: true,
+  |          ^^^^
+  |
+```
+
+or with a multi-line expression:
+
+```
+error: invalid type: map, expected a string
+ --> string:3:9
+  |
+3 |       y: (
+  |  ________^
+4 | |         this: "is",
+5 | |         not: "the right type",
+6 | |     ),
+  | |______^
+  |
+```
+
 ## Goals / Progress
 
 | Goal                                             | Status                                         |
