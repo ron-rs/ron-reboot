@@ -4,7 +4,7 @@ pub use self::{
     str::unescaped_str,
     string::parse_string as escaped_string,
 };
-use crate::parser::{basic::one_of_tags, combinators::context, IResultLookahead, Input};
+use crate::utf8_parser::{basic::one_of_tags, combinators::context, IResultLookahead, Input};
 
 pub mod ident;
 pub mod number;

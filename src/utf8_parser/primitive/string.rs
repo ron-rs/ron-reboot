@@ -1,4 +1,4 @@
-use crate::parser::{
+use crate::utf8_parser::{
     basic::{multispace1, one_char, one_of_chars},
     combinators::{
         alt2, context, cut, delimited, fold_many0, lookahead, map, map_res, preceded, take_while,
@@ -62,8 +62,8 @@ fn parse_literal<'a>(input: Input<'a>) -> IResultLookahead<Input<'a>> {
     // given characters.
     let not_quote_slash = take_while(|c| c != '"' && c != '\\');
 
-    // `verify` runs a parser, then runs a verification function on the output of
-    // the parser. The verification function accepts out output only if it
+    // `verify` runs a utf8_parser, then runs a verification function on the output of
+    // the utf8_parser. The verification function accepts out output only if it
     // returns true. In this case, we want to ensure that the output of is_not
     // is non-empty.
     map_res(not_quote_slash, |s| {
@@ -89,8 +89,8 @@ enum StringFragment<'a> {
 /// into a StringFragment.
 fn parse_fragment<'a>(input: Input<'a>) -> IResultLookahead<StringFragment<'a>> {
     alt2(
-        // The `map` combinator runs a parser, then applies a function to the output
-        // of that parser.
+        // The `map` combinator runs a utf8_parser, then applies a function to the output
+        // of that utf8_parser.
         map(lookahead(parse_literal), |i| {
             StringFragment::Literal(i.fragment())
         }),
@@ -104,10 +104,10 @@ fn parse_fragment<'a>(input: Input<'a>) -> IResultLookahead<StringFragment<'a>> 
 }
 
 fn inner_string(input: Input) -> IResultLookahead<String> {
-    // fold_many0 is the equivalent of iterator::fold. It runs a parser in a loop,
+    // fold_many0 is the equivalent of iterator::fold. It runs a utf8_parser in a loop,
     // and for each output value, calls a folding function on each output value.
     fold_many0(
-        // Our parser function– parses a single string fragment
+        // Our utf8_parser function– parses a single string fragment
         lookahead(parse_fragment),
         // Our init value, an empty string
         String::new,
@@ -129,7 +129,7 @@ fn inner_string(input: Input) -> IResultLookahead<String> {
 pub fn parse_string(input: Input) -> IResultLookahead<String> {
     // Finally, parse the string. Note that, if `build_string` could accept a raw
     // " character, the closing delimiter " would never match. When using
-    // `delimited` with a looping parser (like fold_many0), be sure that the
+    // `delimited` with a looping utf8_parser (like fold_many0), be sure that the
     // loop won't accidentally match your closing delimiter!
     context(
         "string",

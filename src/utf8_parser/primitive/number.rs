@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::parser::{
+use crate::utf8_parser::{
     ast::{Decimal, Sign, SignedInteger, UnsignedInteger},
     basic::{one_char, one_of_chars},
     char_categories::{is_digit, is_digit_first},
@@ -57,12 +57,12 @@ pub fn signed_integer(input: Input) -> IResultLookahead<SignedInteger> {
 }
 
 #[cfg(test)]
-pub fn integer(input: Input) -> IResultLookahead<crate::parser::ast::Integer> {
+pub fn integer(input: Input) -> IResultLookahead<crate::utf8_parser::ast::Integer> {
     context(
         "integer",
         alt2(
-            map(signed_integer, crate::parser::ast::Integer::Signed),
-            map(unsigned_integer, crate::parser::ast::Integer::Unsigned),
+            map(signed_integer, crate::utf8_parser::ast::Integer::Signed),
+            map(unsigned_integer, crate::utf8_parser::ast::Integer::Unsigned),
         ),
     )(input)
 }
@@ -116,7 +116,7 @@ pub fn decimal(input: Input) -> IResultLookahead<Decimal> {
 mod tests {
     use super::*;
     use crate::{
-        parser::{ast::Expr, expr},
+        utf8_parser::{ast::Expr, expr},
         test_util::eval,
     };
 
@@ -145,15 +145,15 @@ mod tests {
     fn integers() {
         assert_eq!(
             eval!(integer, "-1"),
-            crate::parser::ast::Integer::new_test(Some(Sign::Negative), 1)
+            crate::utf8_parser::ast::Integer::new_test(Some(Sign::Negative), 1)
         );
         assert_eq!(
             eval!(integer, "123"),
-            crate::parser::ast::Integer::new_test(None, 123)
+            crate::utf8_parser::ast::Integer::new_test(None, 123)
         );
         assert_eq!(
             eval!(integer, "+123"),
-            crate::parser::ast::Integer::new_test(Some(Sign::Positive), 123)
+            crate::utf8_parser::ast::Integer::new_test(Some(Sign::Positive), 123)
         );
     }
 

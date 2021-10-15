@@ -1,4 +1,4 @@
-use crate::parser::{Input, InputParseErr};
+use crate::utf8_parser::{Input, InputParseErr};
 
 #[cfg(test)]
 macro_rules! eval {

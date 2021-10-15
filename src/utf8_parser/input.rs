@@ -4,7 +4,7 @@ use std::{
     slice::SliceIndex,
 };
 
-use crate::parser::IResultLookahead;
+use crate::utf8_parser::IResultLookahead;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Offset {
@@ -182,7 +182,7 @@ fn str_offset(first: &str, second: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::input::get_char_at_offset;
+    use crate::utf8_parser::input::get_char_at_offset;
 
     #[test]
     fn test_char_offset_basic() {

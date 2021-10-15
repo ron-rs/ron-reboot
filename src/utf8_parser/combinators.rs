@@ -1,4 +1,4 @@
-use crate::parser::{
+use crate::utf8_parser::{
     ast::Spanned,
     basic,
     basic::{multispace0, one_char},
@@ -165,9 +165,9 @@ where
                 Err(InputParseErr::Recoverable(_)) => return Ok((i, acc)),
                 Err(e) => return Err(e),
                 Ok((i1, o)) => {
-                    // infinite loop check: the parser must always consume
+                    // infinite loop check: the utf8_parser must always consume
                     if i1.len() == len {
-                        unimplemented!("infinite loop - parser not consuming?");
+                        unimplemented!("infinite loop - utf8_parser not consuming?");
                     }
 
                     i = i1;
@@ -265,7 +265,7 @@ where
             let len = input.len();
             match f(i_) {
                 Ok((i, o)) => {
-                    // infinite loop check: the parser must always consume
+                    // infinite loop check: the utf8_parser must always consume
                     if i.len() == len {
                         todo!()
                         //return Err(InputParseErr::Error(E::from_error_kind(input, ErrorKind::Many0)));
@@ -363,7 +363,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{parser::basic::tag, test_util::eval};
+    use crate::{utf8_parser::basic::tag, test_util::eval};
 
     #[test]
     fn test_comma_list0() {

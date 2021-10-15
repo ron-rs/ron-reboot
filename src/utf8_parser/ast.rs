@@ -1,9 +1,15 @@
+// TODO: one could further differentiate between parse tree and abstract syntax tree,
+// TODO: but it seems they would be similar for the most part in RON.
+// TODO: It would probably make sense to keep the parse tree in this (utf8_parser) module
+// TODO: and have the ast in the top-level
+//
+
 use std::mem::replace;
 
 #[cfg(feature = "serde1_ast_derives")]
 use serde::Serialize;
 
-use crate::parser::Input;
+use crate::utf8_parser::Input;
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
 #[derive(Clone, Debug)]

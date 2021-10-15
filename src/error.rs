@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     error_fmt::ErrorTreeFmt,
-    parser::{InputParseError, Location},
+    utf8_parser::{InputParseError, Location},
 };
 
 #[derive(Clone, Debug, PartialEq)]

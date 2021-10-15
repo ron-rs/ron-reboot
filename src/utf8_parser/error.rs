@@ -6,16 +6,16 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
 };
 
-use crate::{parser::Input, util::write_pretty_list};
+use crate::{utf8_parser::Input, util::write_pretty_list};
 
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 
 #[derive(Debug)]
 #[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum InputParseErr<'a> {
-    /// The parser had an error (recoverable)
+    /// The utf8_parser had an error (recoverable)
     Recoverable(InputParseError<'a>),
-    /// The parser had an unrecoverable error: we got to the right
+    /// The utf8_parser had an unrecoverable error: we got to the right
     /// branch and we know other branches won't work, so backtrack
     /// as fast as possible
     Fatal(InputParseError<'a>),

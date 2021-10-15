@@ -1,5 +1,5 @@
 use crate::{
-    parser::{
+    utf8_parser::{
         ast::{
             Attribute, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger,
         },

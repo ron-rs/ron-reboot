@@ -1,4 +1,4 @@
-use crate::parser::{
+use crate::utf8_parser::{
     error::{ErrorTree, Expectation},
     IResultLookahead, Input, InputParseErr, OutputResult,
 };

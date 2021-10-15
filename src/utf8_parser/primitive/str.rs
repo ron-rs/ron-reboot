@@ -1,4 +1,4 @@
-use crate::parser::{
+use crate::utf8_parser::{
     basic::tag,
     combinators::{delimited, map, take_while},
     IResultLookahead, Input,

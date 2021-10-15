@@ -8,8 +8,8 @@ use serde::{
 //use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
 //use crate::error::{ron_err, ErrorKind};
 use crate::{
-    parser,
-    parser::{
+    utf8_parser,
+    utf8_parser::{
         ast,
         ast::{Expr::*, Integer},
     },
@@ -24,7 +24,7 @@ pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
 {
-    let mut ron = parser::ron(s)?;
+    let mut ron = utf8_parser::ron(s)?;
 
     T::deserialize(RonDeserializer::from_ron(&mut ron))
 }

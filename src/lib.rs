@@ -3,7 +3,7 @@ pub use self::serde::from_str;
 
 mod error;
 pub mod error_fmt;
-pub mod parser;
+pub mod utf8_parser;
 #[cfg(feature = "serde1_serde")]
 mod serde;
 mod util;

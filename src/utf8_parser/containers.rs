@@ -1,6 +1,6 @@
 use crate::{
-    parser,
-    parser::{
+    utf8_parser,
+    utf8_parser::{
         ast::{Expr, Ident, KeyValue, List, Map, Spanned, Struct},
         basic::one_char,
         combinators,
@@ -18,7 +18,7 @@ fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
             combinators::spanned(ident::ident),
             one_char(':'),
         )),
-        combinators::spanned(parser::expr),
+        combinators::spanned(utf8_parser::expr),
     );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
@@ -45,10 +45,10 @@ pub fn r#struct(input: Input) -> IResultLookahead<Struct> {
 fn key_val_pair(input: Input) -> IResultLookahead<KeyValue<Expr>> {
     let pair = pair(
         terminated(
-            lookahead(combinators::spanned(parser::expr)),
+            lookahead(combinators::spanned(utf8_parser::expr)),
             cut(one_char(':')),
         ),
-        combinators::spanned(parser::expr),
+        combinators::spanned(utf8_parser::expr),
     );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
 }
@@ -73,7 +73,7 @@ pub fn list(input: Input) -> IResultLookahead<List> {
         combinators::block(
             '[',
             map(
-                combinators::ws(comma_list0(|input| lookahead(parser::expr)(input))),
+                combinators::ws(comma_list0(|input| lookahead(utf8_parser::expr)(input))),
                 |elements| List { elements },
             ),
             ']',
@@ -86,7 +86,7 @@ pub fn tuple(input: Input) -> IResultLookahead<List> {
         "tuple",
         combinators::block(
             '(',
-            map(comma_list0(parser::expr), |elements| List { elements }),
+            map(comma_list0(utf8_parser::expr), |elements| List { elements }),
             ')',
         ),
     )(input)
