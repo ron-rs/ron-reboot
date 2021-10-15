@@ -196,6 +196,17 @@ pub enum ErrorTree<I> {
 }
 
 impl<I> ErrorTree<I> {
+    pub fn max_location(&self) -> &I
+    where
+        I: Ord,
+    {
+        match self {
+            ErrorTree::Base { location, .. } => location,
+            ErrorTree::Stack { base, .. } => base.max_location(),
+            ErrorTree::Alt(v) => v.iter().map(ErrorTree::max_location).max().unwrap(),
+        }
+    }
+
     pub fn expected(location: I, expectation: Expectation) -> Self {
         ErrorTree::Base {
             location,

@@ -1,9 +1,9 @@
 use std::{
-    fmt::{Display, Formatter},
+    cmp::Ordering,
+    fmt::{Debug, Display, Formatter},
     ops::Add,
     slice::SliceIndex,
 };
-use std::fmt::Debug;
 
 use crate::utf8_parser::IResultLookahead;
 
@@ -149,11 +149,7 @@ impl<'a> Input<'a> {
 
 impl<'a> Debug for Input<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            Location::from(*self),
-        )
+        write!(f, "{}", Location::from(*self),)
     }
 }
 
@@ -165,6 +161,30 @@ impl<'a> Display for Input<'a> {
             Location::from(*self),
             self.fragment.get(..1).unwrap_or("eof"),
         )
+    }
+}
+
+impl PartialOrd for Input<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let first = self.fragment.as_ptr();
+        let second = other.fragment.as_ptr();
+
+        let first = first as usize;
+        let second = second as usize;
+
+        first.partial_cmp(&second)
+    }
+}
+
+impl Ord for Input<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let first = self.fragment.as_ptr();
+        let second = other.fragment.as_ptr();
+
+        let first = first as usize;
+        let second = second as usize;
+
+        first.cmp(&second)
     }
 }
 
@@ -194,32 +214,31 @@ fn str_offset(first: &str, second: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::utf8_parser::input::get_char_at_offset;
-    use crate::utf8_parser::{Input, Location};
+    use crate::utf8_parser::{input::get_char_at_offset, Input, Location};
 
     #[test]
     fn test_location() {
         let input = Input::new("Foo(\na: true,\nb: false)");
-        assert_eq!(Location::from(input.take_split(0).0), Location {
-            line: 1,
-            column: 1,
-        });
-        assert_eq!(Location::from(input.take_split(1).0), Location {
-            line: 1,
-            column: 2,
-        });
-        assert_eq!(Location::from(input.take_split(5).0), Location {
-            line: 2,
-            column: 1,
-        });
-        assert_eq!(Location::from(input.take_split(6).0), Location {
-            line: 2,
-            column: 2,
-        });
-        assert_eq!(Location::from(input.take_split(14).0), Location {
-            line: 3,
-            column: 1,
-        });
+        assert_eq!(
+            Location::from(input.take_split(0).0),
+            Location { line: 1, column: 1 }
+        );
+        assert_eq!(
+            Location::from(input.take_split(1).0),
+            Location { line: 1, column: 2 }
+        );
+        assert_eq!(
+            Location::from(input.take_split(5).0),
+            Location { line: 2, column: 1 }
+        );
+        assert_eq!(
+            Location::from(input.take_split(6).0),
+            Location { line: 2, column: 2 }
+        );
+        assert_eq!(
+            Location::from(input.take_split(14).0),
+            Location { line: 3, column: 1 }
+        );
     }
 
     #[test]

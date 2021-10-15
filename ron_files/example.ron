@@ -1,4 +1,5 @@
 MyStruct(
-    x: false,
-    y: true,
+    asdf: false,
+    y: "true",
+    x: nottrue,
 )

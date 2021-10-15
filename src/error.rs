@@ -79,10 +79,17 @@ impl Error {
 
 impl From<InputParseError<'_>> for Error {
     fn from(e: InputParseError) -> Self {
+        let max_location = *e.max_location();
+        let max_location: Location = max_location.into();
+
         Error {
             kind: ErrorKind::ParseError(ErrorTreeFmt::new(e).to_string()),
             context: None,
         }
+        .context_loc(max_location, Location {
+            line: max_location.line,
+            column: max_location.column + 1,
+        })
     }
 }
 
@@ -182,7 +189,7 @@ pub fn print_error(e: &Error) -> std::io::Result<()> {
                         col_ws_rep,
                         "_".repeat((start.column - 1) as usize),
                     )?;
-                    for line_number in start.line+1..=end.line {
+                    for line_number in start.line + 1..=end.line {
                         let line_nr_string = line_number.to_string();
                         let line_padding = " ".repeat(max_line_col_width - line_nr_string.len());
                         writeln!(

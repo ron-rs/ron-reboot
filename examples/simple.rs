@@ -2,6 +2,7 @@ use ron_reboot::{from_str, print_error};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MyStruct {
     x: bool,
     y: String,

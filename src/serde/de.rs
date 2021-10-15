@@ -15,12 +15,13 @@ use crate::{
         Location,
     },
 };
+use crate::error::Error;
 
 pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
 {
-    let mut ron = utf8_parser::ron(s)?;
+    let mut ron = utf8_parser::ron(s).map_err(Error::from).map_err(|e| e.context_file_content(s.to_owned()))?;
 
     T::deserialize(RonDeserializer::from_ron(&mut ron))
         .map_err(|e| e.context_file_content(s.to_owned()))
@@ -161,11 +162,11 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let mut x = self
+        let x = self
             .value
             .take()
             .expect("called next_value_seed before next_key_seed");
-        seed.deserialize(RonDeserializer { expr: &mut x })
+        seed.deserialize(RonDeserializer { expr: x })
             .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
@@ -233,11 +234,11 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let mut x = self
+        let x = self
             .value
             .take()
             .expect("called next_value_seed before next_key_seed");
-        seed.deserialize(RonDeserializer { expr: &mut x })
+        seed.deserialize(RonDeserializer { expr: x })
             .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
