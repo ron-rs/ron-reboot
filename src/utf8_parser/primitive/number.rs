@@ -116,8 +116,8 @@ pub fn decimal(input: Input) -> IResultLookahead<Decimal> {
 mod tests {
     use super::*;
     use crate::{
-        utf8_parser::{ast::Expr, expr},
         test_util::eval,
+        utf8_parser::{ast::Expr, expr},
     };
 
     #[test]

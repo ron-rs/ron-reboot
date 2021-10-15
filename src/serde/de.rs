@@ -12,14 +12,10 @@ use crate::{
     utf8_parser::{
         ast,
         ast::{Expr::*, Integer},
+        Location,
     },
 };
 
-// By convention, the public API of a Serde deserializer is one or more
-// `from_xyz` methods such as `from_str`, `from_bytes`, or `from_reader`
-// depending on what Rust types the deserializer is able to consume as input.
-//
-// This basic deserializer supports only `from_str`.
 pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
@@ -27,6 +23,7 @@ where
     let mut ron = utf8_parser::ron(s)?;
 
     T::deserialize(RonDeserializer::from_ron(&mut ron))
+        .map_err(|e| e.context_file_content(s.to_owned()))
 }
 
 pub struct RonDeserializer<'a, 'de> {
@@ -59,7 +56,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        match self.expr.value.take() {
+        let res = match self.expr.value.take() {
             Unit => visitor.visit_unit(),
             Bool(b) => visitor.visit_bool(b),
             Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
@@ -83,7 +80,9 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             Str(s) => visitor.visit_borrowed_str(s),
             String(s) => visitor.visit_string(s),
             Decimal(d) => visitor.visit_f64(d.into()),
-        }
+        };
+
+        res.map_err(|e| e.context_loc(self.expr.start.into(), self.expr.end.into()))
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -121,7 +120,10 @@ impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some(x) => seed.deserialize(RonDeserializer { expr: x }).map(Some),
+            Some(x) => seed
+                .deserialize(RonDeserializer { expr: x })
+                .map(Some)
+                .map_err(|e| e.context_loc(x.start.into(), x.end.into())),
             None => Ok(None),
         }
     }
@@ -139,12 +141,17 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        match self.iter.next().map(|s| &mut s.value) {
+        match self.iter.next() {
             Some(x) => {
-                self.value = Some(&mut x.value);
+                let start_loc = Location::from(x.start);
+                let end_loc = Location::from(x.end);
+                self.value = Some(&mut x.value.value);
 
-                seed.deserialize(IdentDeserializer { ident: &mut x.key })
-                    .map(Some)
+                seed.deserialize(IdentDeserializer {
+                    ident: &mut x.value.key,
+                })
+                .map(Some)
+                .map_err(|e| e.context_loc(start_loc, end_loc))
             }
             None => Ok(None),
         }
@@ -154,12 +161,12 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        seed.deserialize(RonDeserializer {
-            expr: &mut self
-                .value
-                .take()
-                .expect("called next_value_seed before next_key_seed"),
-        })
+        let mut x = self
+            .value
+            .take()
+            .expect("called next_value_seed before next_key_seed");
+        seed.deserialize(RonDeserializer { expr: &mut x })
+            .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
     fn next_entry_seed<K, V>(
@@ -171,10 +178,16 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
         K: DeserializeSeed<'de>,
         V: DeserializeSeed<'de>,
     {
-        match self.iter.next().map(|s| &mut s.value) {
+        match self.iter.next() {
             Some(x) => {
-                let key = kseed.deserialize(IdentDeserializer { ident: &mut x.key })?;
-                let value = vseed.deserialize(RonDeserializer { expr: &mut x.value })?;
+                let key = kseed
+                    .deserialize(IdentDeserializer {
+                        ident: &mut x.value.key,
+                    })
+                    .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
+                let value = vseed.deserialize(RonDeserializer {
+                    expr: &mut x.value.value,
+                })?;
 
                 Ok(Some((key, value)))
             }
@@ -199,12 +212,18 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        match self.iter.next().map(|s| &mut s.value) {
+        match self.iter.next() {
             Some(x) => {
-                self.value = Some(&mut x.value);
+                let start_loc = Location::from(x.start);
+                let end_loc = Location::from(x.end);
 
-                seed.deserialize(RonDeserializer { expr: &mut x.key })
-                    .map(Some)
+                self.value = Some(&mut x.value.value);
+
+                seed.deserialize(RonDeserializer {
+                    expr: &mut x.value.key,
+                })
+                .map(Some)
+                .map_err(|e| e.context_loc(start_loc, end_loc))
             }
             None => Ok(None),
         }
@@ -214,12 +233,12 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        seed.deserialize(RonDeserializer {
-            expr: &mut self
-                .value
-                .take()
-                .expect("called next_value_seed before next_key_seed"),
-        })
+        let mut x = self
+            .value
+            .take()
+            .expect("called next_value_seed before next_key_seed");
+        seed.deserialize(RonDeserializer { expr: &mut x })
+            .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
     fn next_entry_seed<K, V>(
@@ -231,10 +250,18 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
         K: DeserializeSeed<'de>,
         V: DeserializeSeed<'de>,
     {
-        match self.iter.next().map(|s| &mut s.value) {
+        match self.iter.next() {
             Some(x) => {
-                let key = kseed.deserialize(RonDeserializer { expr: &mut x.key })?;
-                let value = vseed.deserialize(RonDeserializer { expr: &mut x.value })?;
+                let key = kseed
+                    .deserialize(RonDeserializer {
+                        expr: &mut x.value.key,
+                    })
+                    .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
+                let value = vseed
+                    .deserialize(RonDeserializer {
+                        expr: &mut x.value.value,
+                    })
+                    .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
 
                 Ok(Some((key, value)))
             }

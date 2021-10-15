@@ -363,7 +363,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{utf8_parser::basic::tag, test_util::eval};
+    use crate::{test_util::eval, utf8_parser::basic::tag};
 
     #[test]
     fn test_comma_list0() {

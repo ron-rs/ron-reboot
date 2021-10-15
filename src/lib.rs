@@ -1,11 +1,12 @@
+pub use self::error::print_error;
 #[cfg(feature = "serde1_serde")]
 pub use self::serde::from_str;
 
 mod error;
 pub mod error_fmt;
-pub mod utf8_parser;
 #[cfg(feature = "serde1_serde")]
 mod serde;
+pub mod utf8_parser;
 mod util;
 
 // Integration tests cannot import this without the feature gate

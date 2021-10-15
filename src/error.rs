@@ -1,23 +1,87 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    io::stdout,
+};
 
 use crate::{
     error_fmt::ErrorTreeFmt,
     utf8_parser::{InputParseError, Location},
 };
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ErrorContext {
+    pub start_end: Option<(Location, Location)>,
+    pub file_name: Option<String>,
+    pub file_content: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     pub kind: ErrorKind,
-    pub start: Option<Location>,
-    pub end: Option<Location>,
+    pub context: Option<Box<ErrorContext>>,
+}
+
+impl Error {
+    /// Set locations for this error, if they are `None`.
+    /// Keeps already set locations.
+    pub fn context_loc(self, start: Location, end: Location) -> Self {
+        let mut context = self.context.unwrap_or_default();
+        context.start_end.get_or_insert((start, end));
+
+        Error {
+            kind: self.kind,
+            context: Some(context),
+        }
+    }
+
+    /// Set file name for this error, if they are `None`.
+    /// Keeps already set file name.
+    pub fn context_file_name(self, file_name: String) -> Self {
+        let mut context = self.context.unwrap_or_default();
+        context.file_name.get_or_insert(file_name);
+
+        Error {
+            kind: self.kind,
+            context: Some(context),
+        }
+    }
+
+    /// Set file content for this error, if they are `None`.
+    /// Keeps already set file contents.
+    pub fn context_file_content(self, file_content: String) -> Self {
+        let mut context = self.context.unwrap_or_default();
+        context.file_content.get_or_insert(file_content);
+
+        Error {
+            kind: self.kind,
+            context: Some(context),
+        }
+    }
+
+    /// Set locations for this error, if they are `None`.
+    /// Keeps already set locations.
+    pub fn start(&self) -> Option<Location> {
+        self.context
+            .as_ref()
+            .and_then(|c| c.start_end)
+            .map(|se| se.0)
+    }
+
+    /// Set locations for this error, if they are `None`.
+    /// Keeps already set locations.
+    pub fn end(&self) -> Option<Location> {
+        self.context
+            .as_ref()
+            .and_then(|c| c.start_end)
+            .map(|se| se.1)
+    }
 }
 
 impl From<InputParseError<'_>> for Error {
     fn from(e: InputParseError) -> Self {
         Error {
-            start: None,
-            end: None,
             kind: ErrorKind::ParseError(ErrorTreeFmt::new(e).to_string()),
+            context: None,
         }
     }
 }
@@ -29,27 +93,113 @@ impl serde::de::Error for Error {
     {
         Error {
             kind: ErrorKind::Custom(msg.to_string()),
-            start: None,
-            end: None,
+            context: None,
         }
     }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match (self.start.as_ref(), self.end.as_ref()) {
-            (Some(start), Some(end)) => write!(
-                f,
-                "deserialization error at {} - {}: {}",
-                start, end, self.kind
-            ),
-            (Some(start), None) => write!(f, "deserialization error at {}: {}", start, self.kind),
-            _ => write!(f, "{}", self.kind),
+        // TODO: any way to do this more elegantly?
+        match self.context.as_ref() {
+            Some(context) => match (
+                context.start_end.as_ref(),
+                context.file_name.as_ref(),
+                context.file_content.as_ref(),
+            ) {
+                (Some((start, _)), _, _) => {
+                    write!(f, "error at {}: {}", start, self.kind)
+                }
+                (_, _, _) => {
+                    write!(f, "error: {}", self.kind)
+                }
+            },
+            None => write!(f, "error: {}", self.kind),
         }
     }
 }
 
 impl std::error::Error for Error {}
+
+pub fn print_error(e: &Error) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let f = stdout();
+    let mut f = f.lock();
+    match e.context.as_ref() {
+        Some(context) => match (
+            context.start_end.as_ref(),
+            context.file_name.as_ref(),
+            context.file_content.as_ref(),
+        ) {
+            (Some((start, end)), file_name, Some(file_content)) => {
+                let max_line_col_width = start.line.max(end.line).to_string().len();
+                let col_ws_rep = " ".repeat(max_line_col_width);
+                writeln!(f, "error: {}", e.kind)?;
+                writeln!(
+                    f,
+                    "{}--> {}:{}:{}",
+                    col_ws_rep,
+                    file_name.map(AsRef::as_ref).unwrap_or("string"),
+                    start.line,
+                    start.column
+                )?;
+
+                writeln!(f, "{} |", col_ws_rep)?;
+                let mut lines = file_content.lines().skip(start.line as usize - 1);
+                let start_line_string = start.line.to_string();
+                let start_line_padding = " ".repeat(max_line_col_width - start_line_string.len());
+                // The first line
+                writeln!(
+                    f,
+                    "{}{} |   {}",
+                    start_line_padding,
+                    start.line,
+                    lines.next().unwrap_or_default()
+                )?;
+                if start.line == end.line {
+                    // If it's just one line, mark the whole span with ^
+                    writeln!(
+                        f,
+                        "{} | {}{}",
+                        col_ws_rep,
+                        " ".repeat(start.column as usize),
+                        "^".repeat((end.column - start.column) as usize)
+                    )?;
+                } else {
+                    writeln!(
+                        f,
+                        "{} |  {}^",
+                        col_ws_rep,
+                        "_".repeat((start.column - 1) as usize),
+                    )?;
+                    for line_number in start.line+1..=end.line {
+                        let line_nr_string = line_number.to_string();
+                        let line_padding = " ".repeat(max_line_col_width - line_nr_string.len());
+                        writeln!(
+                            f,
+                            "{}{} | | {}",
+                            line_padding,
+                            line_nr_string,
+                            lines.next().unwrap_or_default()
+                        )?;
+                    }
+
+                    writeln!(
+                        f,
+                        "{} | |{}^",
+                        col_ws_rep,
+                        "_".repeat((end.column - 1) as usize)
+                    )?;
+                }
+
+                writeln!(f, "{} |", col_ws_rep)
+            }
+            _ => writeln!(f, "{}", e),
+        },
+        _ => writeln!(f, "{}", e),
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]

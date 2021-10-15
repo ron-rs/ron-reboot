@@ -1,4 +1,4 @@
-use ron_reboot::from_str;
+use ron_reboot::{from_str, print_error};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -16,13 +16,7 @@ fn main() {
             println!("{:#?}", x);
         }
         Err(e) => {
-            let mut e = &e as &dyn std::error::Error;
-            eprintln!("{}", e);
-
-            while let Some(s) = e.source() {
-                eprintln!("  caused by: {}", s);
-                e = s;
-            }
+            print_error(&e).unwrap();
         }
     }
 }

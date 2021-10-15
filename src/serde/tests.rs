@@ -1,12 +1,8 @@
-use std::{collections::HashMap, iter::FromIterator};
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash, iter::FromIterator};
 
 use serde::Deserialize;
 
-use crate::{
-    error::{Error, ErrorKind::*},
-    serde::from_str,
-};
+use crate::{error::ErrorKind::*, serde::from_str};
 
 #[derive(Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct MyStruct {
@@ -165,8 +161,8 @@ fn zero_copy_strs() {
     );
     assert_eq!(from_str::<&str>(r#" "😀😀" "#), Ok("😀😀"));
     assert_eq!(
-        from_str::<&str>(r#"  "Escapes are \\ fun but not available here :|" "#),
-        Err(Error { kind: Custom(r#"invalid type: string "Escapes are \\ fun but not available here :|", expected a borrowed string"#.to_owned()), start: None, end: None })
+        from_str::<&str>(r#"  "Escapes are \\ fun but not available here :|" "#).unwrap_err().kind,
+        Custom(r#"invalid type: string "Escapes are \\ fun but not available here :|", expected a borrowed string"#.to_owned()),
     );
 }
 

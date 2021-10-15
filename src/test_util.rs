@@ -6,7 +6,7 @@ macro_rules! eval {
         $crate::test_util::unwrap_pr1(eval!(@result $parser, $input))
     };
     (@result $parser:expr,$input:expr) => {
-        ($parser)($crate::parser::Input::new($input))
+        ($parser)($crate::utf8_parser::Input::new($input))
     };
 }
 

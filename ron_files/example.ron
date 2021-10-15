@@ -1,5 +1,4 @@
-Example(
-    xyz: Asdf(
-        x: 4, y: !
-    ),
+MyStruct(
+    x: false,
+    y: true,
 )

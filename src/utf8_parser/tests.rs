@@ -1,4 +1,5 @@
 use crate::{
+    test_util::eval,
     utf8_parser::{
         ast::{
             Attribute, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger,
@@ -6,7 +7,6 @@ use crate::{
         combinators::comma_list0,
         *,
     },
-    test_util::eval,
 };
 
 #[test]
