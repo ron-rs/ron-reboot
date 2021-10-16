@@ -6,7 +6,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
 };
 
-use crate::{utf8_parser::Input, util::write_pretty_list};
+use crate::{location::Location, utf8_parser::Input, util::write_pretty_list};
 
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 
@@ -190,7 +190,7 @@ pub enum ErrorTree<I> {
 }
 
 impl<I> ErrorTree<I> {
-    pub fn max_location(&self) -> &I
+    pub(crate) fn max_location(&self) -> &I
     where
         I: Ord,
     {
@@ -201,14 +201,14 @@ impl<I> ErrorTree<I> {
         }
     }
 
-    pub fn expected(location: I, expectation: Expectation) -> Self {
+    pub(crate) fn expected(location: I, expectation: Expectation) -> Self {
         ErrorTree::Base {
             location,
             kind: BaseErrorKind::Expected(expectation),
         }
     }
 
-    pub fn alt(first: Self, second: Self) -> Self {
+    pub(crate) fn alt(first: Self, second: Self) -> Self {
         match (first, second) {
             (ErrorTree::Alt(mut alt), ErrorTree::Alt(alt2)) => {
                 alt.extend(alt2);
@@ -245,8 +245,15 @@ impl<I> ErrorTree<I> {
         }
     }
 
-    pub fn map_locations<T>(self, mut convert_location: impl FnMut(I) -> T) -> ErrorTree<T> {
+    pub(crate) fn map_locations<T>(self, mut convert_location: impl FnMut(I) -> T) -> ErrorTree<T> {
         self.map_locations_ref(&mut convert_location)
+    }
+
+    pub(crate) fn calc_locations(self) -> ErrorTree<Location>
+    where
+        I: Into<Location>,
+    {
+        self.map_locations(|i| i.into())
     }
 }
 
@@ -299,6 +306,31 @@ impl<I> ErrorTree<I> {
                 contexts: vec![context],
             },
         }
+    }
+}
+
+impl From<ErrorTree<Location>> for crate::error::Error {
+    fn from(e: ErrorTree<Location>) -> Self {
+        let max_location = *e.max_location();
+        let max_location: Location = max_location.into();
+
+        Self {
+            kind: crate::error::ErrorKind::ParseError(e.to_string()),
+            context: None,
+        }
+        .context_loc(
+            max_location,
+            Location {
+                line: max_location.line,
+                column: max_location.column + 1,
+            },
+        )
+    }
+}
+
+impl From<InputParseError<'_>> for crate::error::Error {
+    fn from(e: InputParseError) -> Self {
+        e.calc_locations().into()
     }
 }
 

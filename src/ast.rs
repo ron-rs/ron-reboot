@@ -1,9 +1,3 @@
-// TODO: one could further differentiate between parse tree and abstract syntax tree,
-// TODO: but it seems they would be similar for the most part in RON.
-// TODO: It would probably make sense to keep the parse tree in this (utf8_parser) module
-// TODO: and have the ast in the top-level
-//
-
 use std::mem::replace;
 
 #[cfg(feature = "serde1_ast_derives")]

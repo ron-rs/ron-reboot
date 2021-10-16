@@ -9,7 +9,7 @@ edition = "2018"
 serde = { version = "1.0.130", optional = true }
 
 [features]
-default = ["utf8_parser"]
+default = ["utf8_parser", "utf8_parser_serde1"]
 
 # === Parsers & Deserializers ===
 utf8_parser = []

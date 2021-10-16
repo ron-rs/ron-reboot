@@ -4,19 +4,10 @@ use std::{
     fmt::{Debug, Display, Formatter},
 };
 
-use crate::{
-    location::Location,
-    utf8_parser::{ErrorTree, Input},
-};
+use crate::utf8_parser::ErrorTree;
 
 #[derive(Debug)]
 pub struct ErrorTreeFmt(ErrorTree<String>);
-
-impl ErrorTreeFmt {
-    pub fn new(e: ErrorTree<Input<'_>>) -> Self {
-        ErrorTreeFmt(e.map_locations(|input| format!("{}", Location::from(input))))
-    }
-}
 
 impl Display for ErrorTreeFmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

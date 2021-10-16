@@ -3,10 +3,7 @@ use std::{
     io::stdout,
 };
 
-use crate::{
-    location::Location,
-    utf8_parser::{error_fmt::ErrorTreeFmt, InputParseError},
-};
+use crate::location::Location;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ErrorContext {
@@ -77,25 +74,7 @@ impl Error {
     }
 }
 
-impl From<InputParseError<'_>> for Error {
-    fn from(e: InputParseError) -> Self {
-        let max_location = *e.max_location();
-        let max_location: Location = max_location.into();
-
-        Error {
-            kind: ErrorKind::ParseError(ErrorTreeFmt::new(e).to_string()),
-            context: None,
-        }
-        .context_loc(
-            max_location,
-            Location {
-                line: max_location.line,
-                column: max_location.column + 1,
-            },
-        )
-    }
-}
-
+#[cfg(feature = "serde")]
 impl serde::de::Error for Error {
     fn custom<T>(msg: T) -> Self
     where
