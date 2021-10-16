@@ -8,6 +8,7 @@ use serde::{
 //use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
 //use crate::error::{ron_err, ErrorKind};
 use crate::{
+    error::Error,
     utf8_parser,
     utf8_parser::{
         ast,
@@ -15,13 +16,14 @@ use crate::{
         Location,
     },
 };
-use crate::error::Error;
 
 pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
 {
-    let mut ron = utf8_parser::ron(s).map_err(Error::from).map_err(|e| e.context_file_content(s.to_owned()))?;
+    let mut ron = utf8_parser::ron(s)
+        .map_err(Error::from)
+        .map_err(|e| e.context_file_content(s.to_owned()))?;
 
     T::deserialize(RonDeserializer::from_ron(&mut ron))
         .map_err(|e| e.context_file_content(s.to_owned()))

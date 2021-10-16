@@ -127,10 +127,6 @@ pub enum BaseErrorKind {
     /// See [`Expectation`] for details.
     Expected(Expectation),
 
-    /// An error outside of nom occurred during parsing; for instance, as a
-    /// result of an error during [`map_res`].
-    ///
-    /// [`map_res`]: crate::parser_ext::ParserExt::map_res
     External(Box<dyn Error + Send + Sync + 'static>),
 }
 
@@ -185,8 +181,7 @@ pub enum ErrorTree<I> {
     },
 
     /// A series of parsers were tried at the same location (for instance, via
-    /// the [`alt`](nom::branch::alt) combinator) and all of them failed. All
-    /// of the errors in this set are "siblings".
+    /// the `alt2` combinator) and all of them failed.
     Alt(Vec<Self>),
     // TODO: in a future version of nom-supreme, elaborate on the specific
     // type combinations here. For instance:

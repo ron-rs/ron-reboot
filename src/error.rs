@@ -86,10 +86,13 @@ impl From<InputParseError<'_>> for Error {
             kind: ErrorKind::ParseError(ErrorTreeFmt::new(e).to_string()),
             context: None,
         }
-        .context_loc(max_location, Location {
-            line: max_location.line,
-            column: max_location.column + 1,
-        })
+        .context_loc(
+            max_location,
+            Location {
+                line: max_location.line,
+                column: max_location.column + 1,
+            },
+        )
     }
 }
 

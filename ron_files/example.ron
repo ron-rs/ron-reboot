@@ -1,5 +1,5 @@
 MyStruct(
     asdf: false,
     y: "true",
-    x: nottrue,
+    x: nottrue, // TODO: bad error msg
 )

@@ -9,13 +9,17 @@ edition = "2018"
 serde = { version = "1.0.130", optional = true }
 
 [features]
-default = ["serde1_serde"]
+default = ["utf8_parser"]
 
-# Serialize derives for ast
-serde1_ast_derives = ["serde/derive"]
-# serde deserializer
-serde1_serde = ["serde"]
-test = []
+# === Parsers & Deserializers ===
+utf8_parser = []
+utf8_parser_serde1 = ["serde", "utf8_parser"]
+
+# === Other features ===
+serde1_ast_derives = ["serde/derive"] # Serialize derives for abstract syntax tree
+
+# used internally for unit tests to circumvent Rust / Cargo restrictions
+test = ["serde1_ast_derives", "utf8_parser_serde1"]
 
 [dev-dependencies]
 ron = "*"
@@ -27,4 +31,4 @@ required-features = ["serde1_ast_derives"]
 
 [[example]]
 name = "simple"
-required-features = ["serde/derive", "serde1_serde"]
+required-features = ["serde/derive", "utf8_parser_serde1"]

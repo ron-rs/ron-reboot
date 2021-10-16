@@ -34,10 +34,15 @@ mod expr;
 mod input;
 /// RON primitive parsers
 mod primitive;
+#[cfg(feature = "utf8_parser_serde1")]
+mod serde;
 #[cfg(test)]
 pub mod tests;
 /// Utility functions for parsing
 mod util;
+
+#[cfg(feature = "utf8_parser_serde1")]
+pub use self::serde::from_str;
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {
     one_of_tags(

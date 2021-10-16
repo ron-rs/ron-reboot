@@ -1,5 +1,5 @@
 use ron::{ser::to_string_pretty, Value};
-use ron_reboot::from_str;
+use ron_reboot::utf8_parser::from_str;
 
 fn main() {
     let s = std::fs::read_to_string(std::env::args().nth(1).unwrap()).expect("file not found");

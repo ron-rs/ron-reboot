@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash, iter::FromIterator};
 
 use serde::Deserialize;
 
-use crate::{error::ErrorKind::*, serde::from_str};
+use crate::{error::ErrorKind::*, utf8_parser::serde::from_str};
 
 #[derive(Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct MyStruct {
