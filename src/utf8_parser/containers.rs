@@ -95,7 +95,7 @@ pub fn tuple(input: Input) -> IResultLookahead<List> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::eval;
+    use crate::utf8_parser::test_util::eval;
 
     #[test]
     fn opt_idents() {

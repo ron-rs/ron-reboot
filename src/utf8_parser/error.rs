@@ -11,7 +11,6 @@ use crate::{utf8_parser::Input, util::write_pretty_list};
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 
 #[derive(Debug)]
-#[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum InputParseErr<'a> {
     /// The utf8_parser had an error (recoverable)
     Recoverable(InputParseError<'a>),

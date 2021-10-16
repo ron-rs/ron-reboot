@@ -9,25 +9,22 @@ use std::mem::replace;
 #[cfg(feature = "serde1_ast_derives")]
 use serde::Serialize;
 
-use crate::utf8_parser::Input;
+use crate::location::Location;
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 #[cfg_attr(feature = "serde1_ast_derives", serde(transparent))]
-pub struct Spanned<'a, T>
-where
-    T: 'a,
-{
+pub struct Spanned<T> {
     #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
-    pub start: Input<'a>,
+    pub start: Location,
     pub value: T,
     #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
-    pub end: Input<'a>,
+    pub end: Location,
 }
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
-impl<'a, T> PartialEq for Spanned<'a, T>
+impl<T> PartialEq for Spanned<T>
 where
     T: PartialEq,
 {
@@ -36,16 +33,15 @@ where
     }
 }
 
-impl<'a, T> Spanned<'a, T>
-where
-    T: 'a,
-{
+impl<T> Spanned<T> {
     #[cfg(test)]
     pub fn new_test(value: T) -> Self {
+        use crate::utf8_parser::test_util::TestMockNew;
+
         Spanned {
-            start: Input::new(""),
+            start: Location::new_mocked(),
             value,
-            end: Input::new(""),
+            end: Location::new_mocked(),
         }
     }
 }
@@ -53,17 +49,17 @@ where
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Ron<'a> {
-    pub attributes: Vec<Spanned<'a, Attribute<'a>>>,
-    pub expr: Spanned<'a, Expr<'a>>,
+    pub attributes: Vec<Spanned<Attribute>>,
+    pub expr: Spanned<Expr<'a>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
-pub enum Attribute<'a> {
-    Enable(Spanned<'a, Vec<Spanned<'a, Extension>>>),
+pub enum Attribute {
+    Enable(Spanned<Vec<Spanned<Extension>>>),
 }
 
-impl<'a> Attribute<'a> {
+impl Attribute {
     #[cfg(test)]
     pub fn enables_test(extensions: Vec<Extension>) -> Self {
         Attribute::Enable(Spanned::new_test(
@@ -84,8 +80,8 @@ pub enum Extension {
 pub struct Ident<'a>(pub &'a str);
 
 impl<'a> Ident<'a> {
-    pub fn from_input(input: Input<'a>) -> Self {
-        Ident(input.fragment())
+    pub fn from_str(input: &'a str) -> Self {
+        Ident(input)
     }
 }
 
@@ -241,8 +237,8 @@ impl From<Decimal> for f64 {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct KeyValue<'a, K: 'a> {
-    pub key: Spanned<'a, K>,
-    pub value: Spanned<'a, Expr<'a>>,
+    pub key: Spanned<K>,
+    pub value: Spanned<Expr<'a>>,
 }
 
 impl<'a, K: 'a> KeyValue<'a, K> {
@@ -255,20 +251,20 @@ impl<'a, K: 'a> KeyValue<'a, K> {
     }
 }
 
-pub type SpannedKvs<'a, K> = Spanned<'a, Vec<Spanned<'a, KeyValue<'a, K>>>>;
+pub type SpannedKvs<'a, K> = Spanned<Vec<Spanned<KeyValue<'a, K>>>>;
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Struct<'a> {
-    pub ident: Option<Spanned<'a, Ident<'a>>>,
+    pub ident: Option<Spanned<Ident<'a>>>,
     pub fields: SpannedKvs<'a, Ident<'a>>,
 }
 
 impl<'a> Struct<'a> {
     #[cfg(test)]
     pub fn new(
-        ident: Option<Spanned<'a, Ident<'a>>>,
-        fields: Spanned<'a, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>>,
+        ident: Option<Spanned<Ident<'a>>>,
+        fields: Spanned<Vec<Spanned<KeyValue<'a, Ident<'a>>>>>,
     ) -> Self {
         Struct { ident, fields }
     }
@@ -313,7 +309,7 @@ impl<'a> Map<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct List<'a> {
-    pub elements: Vec<Spanned<'a, Expr<'a>>>,
+    pub elements: Vec<Spanned<Expr<'a>>>,
 }
 
 impl<'a> List<'a> {

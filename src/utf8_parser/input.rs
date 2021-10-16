@@ -5,7 +5,7 @@ use std::{
     slice::SliceIndex,
 };
 
-use crate::utf8_parser::IResultLookahead;
+use crate::{location::Location, utf8_parser::IResultLookahead};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Offset {
@@ -22,13 +22,6 @@ impl Add<usize> for Offset {
             _ => todo!(),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Location {
-    pub line: u32,
-    /// UTF-8 column
-    pub column: u32,
 }
 
 impl<'a> From<Input<'a>> for Location {
@@ -214,7 +207,10 @@ fn str_offset(first: &str, second: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::utf8_parser::{input::get_char_at_offset, Input, Location};
+    use crate::{
+        location::Location,
+        utf8_parser::{input::get_char_at_offset, Input},
+    };
 
     #[test]
     fn test_location() {

@@ -9,11 +9,11 @@ use serde::{
 //use crate::error::{ron_err, ErrorKind};
 use crate::{
     error::Error,
-    utf8_parser,
+    location::Location,
     utf8_parser::{
         ast,
         ast::{Expr::*, Integer},
-        Location,
+        ast_from_str,
     },
 };
 
@@ -21,7 +21,7 @@ pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
     T: Deserialize<'a>,
 {
-    let mut ron = utf8_parser::ron(s)
+    let mut ron = ast_from_str(s)
         .map_err(Error::from)
         .map_err(|e| e.context_file_content(s.to_owned()))?;
 
@@ -31,7 +31,7 @@ where
 
 pub struct RonDeserializer<'a, 'de> {
     //ron: ast::Ron<'a>,
-    expr: &'a mut ast::Spanned<'de, ast::Expr<'de>>,
+    expr: &'a mut ast::Spanned<ast::Expr<'de>>,
 }
 
 impl<'a, 'de> RonDeserializer<'a, 'de> {
@@ -112,7 +112,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
 }
 
 struct SeqDeserializer<'a, 'de> {
-    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::Expr<'de>>>,
+    iter: std::slice::IterMut<'a, ast::Spanned<ast::Expr<'de>>>,
 }
 
 impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
@@ -133,8 +133,8 @@ impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
 }
 
 struct StructDeserializer<'a, 'de> {
-    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::KeyValue<'de, ast::Ident<'de>>>>,
-    value: Option<&'a mut ast::Spanned<'de, ast::Expr<'de>>>,
+    iter: std::slice::IterMut<'a, ast::Spanned<ast::KeyValue<'de, ast::Ident<'de>>>>,
+    value: Option<&'a mut ast::Spanned<ast::Expr<'de>>>,
 }
 
 impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
@@ -204,8 +204,8 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
 }
 
 struct MapDeserializer<'a, 'de> {
-    iter: std::slice::IterMut<'a, ast::Spanned<'de, ast::KeyValue<'de, ast::Expr<'de>>>>,
-    value: Option<&'a mut ast::Spanned<'de, ast::Expr<'de>>>,
+    iter: std::slice::IterMut<'a, ast::Spanned<ast::KeyValue<'de, ast::Expr<'de>>>>,
+    value: Option<&'a mut ast::Spanned<ast::Expr<'de>>>,
 }
 
 impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
@@ -278,7 +278,7 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
 }
 
 struct IdentDeserializer<'a, 'de> {
-    ident: &'a mut ast::Spanned<'de, ast::Ident<'de>>,
+    ident: &'a mut ast::Spanned<ast::Ident<'de>>,
 }
 
 impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {

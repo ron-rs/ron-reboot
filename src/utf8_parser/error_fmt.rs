@@ -4,7 +4,10 @@ use std::{
     fmt::{Debug, Display, Formatter},
 };
 
-use crate::utf8_parser::{ErrorTree, Input, Location};
+use crate::{
+    location::Location,
+    utf8_parser::{ErrorTree, Input},
+};
 
 #[derive(Debug)]
 pub struct ErrorTreeFmt(ErrorTree<String>);

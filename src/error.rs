@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    error_fmt::ErrorTreeFmt,
-    utf8_parser::{InputParseError, Location},
+    location::Location,
+    utf8_parser::{error_fmt::ErrorTreeFmt, InputParseError},
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]

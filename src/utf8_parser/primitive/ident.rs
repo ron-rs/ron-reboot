@@ -16,14 +16,18 @@ fn ident_inner(input: Input) -> IResultLookahead<Input> {
     recognize(preceded(ident_first_char, take_while(is_ident_other_char)))(input)
 }
 
+fn ast_ident_from_input(input: Input) -> Ident {
+    Ident::from_str(input.fragment())
+}
+
 pub fn ident(input: Input) -> IResultLookahead<Ident> {
-    context("ident", map(ident_inner, Ident::from_input))(input)
+    context("ident", map(ident_inner, ast_ident_from_input))(input)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::eval;
+    use crate::utf8_parser::test_util::eval;
 
     #[test]
     fn ident_underscore() {

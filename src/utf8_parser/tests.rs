@@ -1,12 +1,8 @@
-use crate::{
+use crate::utf8_parser::{
+    ast::{Expr, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger},
+    combinators::{comma_list0, lookahead},
     test_util::eval,
-    utf8_parser::{
-        ast::{
-            Attribute, Expr, Extension, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger,
-        },
-        combinators::comma_list0,
-        *,
-    },
+    *,
 };
 
 #[test]
@@ -71,26 +67,6 @@ fn strings() {
     assert_eq!(
         eval!(escaped_string, r#""So is \u{00AC}""#),
         "So is \u{00AC}"
-    );
-}
-
-#[test]
-fn attributes() {
-    assert_eq!(
-        eval!(attribute, "#![enable(implicit_some)]"),
-        Attribute::enables_test(vec![Extension::ImplicitSome])
-    );
-    assert_eq!(
-        eval!(attribute, "# ! [  enable (  implicit_some   ) ]  "),
-        Attribute::enables_test(vec![Extension::ImplicitSome])
-    );
-
-    assert_eq!(
-        eval!(
-            attribute,
-            "# ! [  enable (  implicit_some  , unwrap_newtypes   ) ]  "
-        ),
-        Attribute::enables_test(vec![Extension::ImplicitSome, Extension::UnwrapNewtypes])
     );
 }
 

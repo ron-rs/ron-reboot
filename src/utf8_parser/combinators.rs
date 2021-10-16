@@ -300,7 +300,7 @@ pub fn take1_if(
 
 pub fn comma_list0<'a, F: 'a, O: 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<O>>>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
@@ -321,7 +321,7 @@ where
 #[cfg(test)]
 pub fn comma_list0_lookahead<'a, F: 'a, O: std::fmt::Debug + 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<O>>>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
@@ -330,7 +330,7 @@ where
 
 pub fn comma_list1<'a, F: 'a, O: 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<O>>>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
@@ -353,7 +353,7 @@ where
 #[cfg(test)]
 pub fn comma_list1_lookahead<'a, F: 'a, O: 'a>(
     f: F,
-) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<'a, O>>>
+) -> impl FnMut(Input<'a>) -> IResultLookahead<Vec<Spanned<O>>>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O> + Clone,
 {
@@ -363,7 +363,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_util::eval, utf8_parser::basic::tag};
+    use crate::utf8_parser::{basic::tag, test_util::eval};
 
     #[test]
     fn test_comma_list0() {
@@ -569,7 +569,14 @@ where
         let (input, value) = inner(input)?;
         let (input, end) = position(input)?;
 
-        Ok((input, Spanned { start, value, end }))
+        Ok((
+            input,
+            Spanned {
+                start: start.into(),
+                value,
+                end: end.into(),
+            },
+        ))
     })
 }
 
