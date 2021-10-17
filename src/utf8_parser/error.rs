@@ -190,6 +190,9 @@ pub enum ErrorTree<I> {
         /// The original error
         base: Box<Self>,
 
+        /// Whether it was indicated that the "final" useful context has been pushed onto the stack
+        finalized: bool,
+
         /// The stack of contexts attached to that error
         contexts: Vec<(I, StackContext)>,
     },
@@ -244,12 +247,13 @@ impl<I> ErrorTree<I> {
                 location: convert_location(location),
                 kind,
             },
-            ErrorTree::Stack { base, contexts } => ErrorTree::Stack {
+            ErrorTree::Stack { base, contexts, finalized } => ErrorTree::Stack {
                 base: Box::new(base.map_locations_ref(convert_location)),
                 contexts: contexts
                     .into_iter()
                     .map(|(location, context)| (convert_location(location), context))
                     .collect(),
+                finalized,
             },
             ErrorTree::Alt(siblings) => ErrorTree::Alt(
                 siblings
@@ -276,7 +280,7 @@ impl<I: Display> Display for ErrorTree<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ErrorTree::Base { location, kind } => write!(f, "{} at {:#}", kind, location),
-            ErrorTree::Stack { contexts, base } => {
+            ErrorTree::Stack { contexts, base, finalized: _ } => {
                 contexts.iter().rev().try_for_each(|(location, context)| {
                     writeln!(f, "{} at {:#} because", context, location)
                 })?;
@@ -305,20 +309,23 @@ impl<I: Display + Debug> Error for ErrorTree<I> {}
 
 impl<I> ErrorTree<I> {
     /// Similar to append: Create a new error with some added context
-    pub fn add_context(location: I, ctx: &'static str, other: Self) -> Self {
+    pub fn add_context(location: I, ctx: &'static str, final_context: bool, other: Self) -> Self {
         let context = (location, StackContext::Context(ctx));
 
         match other {
             // This is already a stack, so push on to it
-            ErrorTree::Stack { mut contexts, base } => {
+            ErrorTree::Stack { mut contexts, base, finalized: false } => {
                 contexts.push(context);
-                ErrorTree::Stack { base, contexts }
+                ErrorTree::Stack { base, contexts, finalized: final_context }
             }
+
+            ErrorTree::Stack { finalized: true, .. } => other,
 
             // This isn't a stack, create a new stack
             base => ErrorTree::Stack {
                 base: Box::new(base),
                 contexts: vec![context],
+                finalized: final_context,
             },
         }
     }

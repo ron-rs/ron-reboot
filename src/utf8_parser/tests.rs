@@ -179,10 +179,7 @@ fn excl_mark() {
     .unwrap_err();
     assert_eq!(
         format!("{}", err),
-        r#"could not match "struct" at 1:1 (`E`) because
-could not match "expression" at 2:10 (`A`) because
-could not match "struct" at 2:10 (`A`) because
-could not match "expression" at 3:23 (`!`) because
+        r#"could not match "expression" at 3:23 (`!`) because
     expected one of an ascii letter or '_' at 3:23 (`!`)"#
     );
 }

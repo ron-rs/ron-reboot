@@ -11,6 +11,7 @@ use crate::utf8_parser::{
     r#struct, rmap, signed_integer, tuple, unescaped_str, unsigned_integer, ErrorTree, Expectation,
     IResultLookahead, Input, InputParseErr, InputParseError,
 };
+use crate::utf8_parser::combinators::context_final;
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {
     one_of_tags(
@@ -133,7 +134,7 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
 }
 
 pub fn expr(input: Input) -> IResultLookahead<Expr> {
-    cut(context("expression", expr_inner))(input)
+    cut(context_final("expression", true, expr_inner))(input)
 }
 
 fn ron_inner(input: Input) -> IResultLookahead<Ron> {

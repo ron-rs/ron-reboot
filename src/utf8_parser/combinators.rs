@@ -141,18 +141,29 @@ where
 
 pub fn context<'a, F, O>(
     context: &'static str,
-    mut f: F,
+    f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
+    context_final(context, false, f)
+}
+
+pub fn context_final<'a, F, O>(
+    context: &'static str,
+    is_final: bool,
+    mut f: F,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
+    where
+        F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+{
     move |i: Input| match f(i) {
         Ok(o) => Ok(o),
         Err(InputParseErr::Recoverable(e)) => Err(InputParseErr::recoverable(
-            InputParseError::add_context(i, context, e),
+            InputParseError::add_context(i, context, is_final, e),
         )),
         Err(InputParseErr::Fatal(e)) => Err(InputParseErr::fatal(InputParseError::add_context(
-            i, context, e,
+            i, context, is_final, e,
         ))),
     }
 }
