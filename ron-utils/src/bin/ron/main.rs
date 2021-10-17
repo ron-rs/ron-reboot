@@ -1,53 +1,11 @@
 use std::process::exit;
 
-use ron_utils::{print_error, validate_file};
-use structopt::{clap::arg_enum, StructOpt};
+use ron_utils::validate_file;
+use structopt::StructOpt;
 
-arg_enum! {
-    #[derive(Debug)]
-    pub enum PrintOpt {
-        PrettyErrors,
-        ErrorStatus,
-        OkStatus,
-        Status,
-        StatusAndPrettyError,
-    }
-}
+use crate::print_opt::PrintOpt;
 
-impl PrintOpt {
-    pub fn print_ok(&self, file_name: &str) {
-        use PrintOpt::*;
-
-        match self {
-            OkStatus | StatusAndPrettyError | Status => {
-                println!("{} ok", file_name)
-            }
-            _ => {}
-        }
-    }
-
-    pub fn print_err(&self, file_name: &str) {
-        use PrintOpt::*;
-
-        match self {
-            ErrorStatus | StatusAndPrettyError | Status => {
-                println!("{} err", file_name)
-            }
-            _ => {}
-        }
-    }
-
-    pub fn print_pretty_error(&self, error: &ron_utils::Error) {
-        use PrintOpt::*;
-
-        match self {
-            PrettyErrors | StatusAndPrettyError => {
-                let _ = print_error(error);
-            }
-            _ => {}
-        }
-    }
-}
+mod print_opt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "ron-utils")]
@@ -58,7 +16,7 @@ enum Opt {
         #[structopt(long)]
         /// Fail on first error encountered
         fail_fast: bool,
-        #[structopt(long, required = false, default_value = "StatusAndPrettyError", possible_values = &PrintOpt::variants(), case_insensitive = true)]
+        #[structopt(long, required = false, default_value = "status-and-pretty-errors", possible_values = &PrintOpt::variants())]
         /// What to print
         print: PrintOpt,
         #[structopt(required = true)]

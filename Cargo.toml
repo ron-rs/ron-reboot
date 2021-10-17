@@ -7,6 +7,13 @@ license = "Unlicense"
 documentation = "https://docs.rs/ron-reboot"
 homepage = "https://github.com/ron-rs/ron-reboot"
 repository = "https://github.com/ron-rs/ron-reboot"
+exclude = [
+    "examples",
+    "tests",
+    "scripts",
+    "ron_files",
+    "ron-utils",
+]
 
 [workspace]
 members = ["ron-utils"]
