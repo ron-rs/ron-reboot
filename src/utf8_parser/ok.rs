@@ -14,7 +14,7 @@ pub struct IOk<'a, O> {
 }
 
 impl<'a, O> IOk<'a, O> {
-    pub fn then<P, Q>(
+    pub fn and_then<P, Q>(
         self,
         mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, P>,
         map: impl FnOnce(O, P) -> Q,

@@ -28,7 +28,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O1>,
     G: FnMut(Input<'a>) -> IResultLookahead<'a, O2>,
 {
-    move |input: Input| first(input)?.then(&mut second, |first, second| (first, second))
+    move |input: Input| first(input)?.and_then(&mut second, |first, second| (first, second))
 }
 
 pub fn preceded<'a, F, G, O, OI>(
@@ -39,7 +39,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, OI>,
     G: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
-    move |input: Input| first(input)?.then(&mut second, |_first, second| second)
+    move |input: Input| first(input)?.and_then(&mut second, |_first, second| second)
 }
 
 pub fn terminated<'a, F, G, O, OI>(
@@ -67,7 +67,7 @@ where
     move |input: Input| {
         let copy_of_input = input;
 
-        parser(copy_of_input)?.then(
+        parser(copy_of_input)?.and_then(
             |remaining_input| {
                 Ok((
                     remaining_input,
@@ -591,7 +591,7 @@ where
 {
     ws(move |input: Input<'a>| {
         position(input)?.then_res(&mut inner, |start, second: IResultLookahead<O>| {
-            second?.then(position, |value, end| Spanned { start, value, end })
+            second?.and_then(position, |value, end| Spanned { start, value, end })
         })
     })
 }

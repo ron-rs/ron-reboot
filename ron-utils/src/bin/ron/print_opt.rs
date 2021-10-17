@@ -9,8 +9,7 @@ pub enum PrintOpt {
     Status,
     StatusAndPrettyError,
 }
-#[automatically_derived]
-#[allow(unused_qualifications)]
+
 impl fmt::Debug for PrintOpt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match (&*self,) {

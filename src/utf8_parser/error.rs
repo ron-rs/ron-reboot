@@ -94,6 +94,9 @@ pub enum Expectation {
     Space,
 
     /// A space, tab, newline, or carriage return was expected.
+    BlockCommentEnd,
+
+    /// A space, tab, newline, or carriage return was expected.
     Multispace,
 
     /// `"\r\n"` was expected.
@@ -128,6 +131,7 @@ impl Display for Expectation {
             Expectation::AlphaNumeric => write!(f, "an ascii alphanumeric character"),
             Expectation::Space => write!(f, "a space or tab"),
             Expectation::Multispace => write!(f, "whitespace"),
+            Expectation::BlockCommentEnd => write!(f, "end of block comment (`*/`)"),
             Expectation::Eof => write!(f, "eof"),
             Expectation::CrLf => write!(f, "CRLF"),
             Expectation::Something => write!(f, "not eof"),
