@@ -1,7 +1,6 @@
 use std::{fs::read_to_string, path::Path};
 
 use ron_reboot::utf8_parser::ast_from_str;
-
 pub use ron_reboot::{print_error, Error};
 
 pub fn validate_str(s: &str) -> Result<(), ron_reboot::Error> {
@@ -13,7 +12,9 @@ pub fn validate_file(p: impl AsRef<Path>) -> Result<(), ron_reboot::Error> {
 }
 
 #[cfg(feature = "serde1")]
-pub fn validate_typed_str<'a, T: serde::Deserialize<'a>>(s: &'a str) -> Result<(), ron_reboot::Error> {
+pub fn validate_typed_str<'a, T: serde::Deserialize<'a>>(
+    s: &'a str,
+) -> Result<(), ron_reboot::Error> {
     ron_reboot::utf8_parser::from_str(s)
 }
 

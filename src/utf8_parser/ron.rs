@@ -77,7 +77,7 @@ impl ExprClass {
                 ExprClass::SignedDec,
                 ExprClass::SignedDec,
                 ExprClass::Dec,
-                ExprClass::Dec,
+                ExprClass::UnsignedDec,
                 ExprClass::UnsignedDec,
                 ExprClass::UnsignedDec,
                 ExprClass::UnsignedDec,

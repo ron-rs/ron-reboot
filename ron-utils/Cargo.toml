@@ -1,7 +1,7 @@
 [package]
 name = "ron-utils"
 description = "Utilities for working with Rusty Object Notation (RON) files"
-version = "0.1.0-preview2"
+version = "0.1.0-preview3"
 edition = "2018"
 license = "Unlicense"
 documentation = "https://docs.rs/ron-utils"
@@ -14,7 +14,7 @@ name = "ron"
 path = "src/main.rs"
 
 [dependencies]
-ron-reboot = { version = "0.1.0-preview2", path = "../", default-features = false, features = ["utf8_parser"] }
+ron-reboot = { version = "0.1.0-preview4", path = "../", default-features = false, features = ["utf8_parser"] }
 serde = { version = "1.0.130", optional = true }
 structopt = "0.3.23"
 

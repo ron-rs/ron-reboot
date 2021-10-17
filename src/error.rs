@@ -1,7 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
+    io::stderr,
 };
-use std::io::stderr;
 
 use crate::location::Location;
 

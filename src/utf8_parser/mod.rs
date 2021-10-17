@@ -8,7 +8,7 @@ use self::{
     primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},
     ron::expr,
 };
-use crate::{ast, ast::Ron, utf8_parser::ok::IOk};
+use crate::{ast, ast::Ron, utf8_parser::ok::IOk, Error};
 
 //pub type IResultFatal<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
 type IResultLookahead<'a, O> = Result<IOk<'a, O>, InputParseErr<'a>>;
@@ -46,7 +46,10 @@ mod util;
 pub mod test_util;
 
 pub fn ast_from_str(input: &str) -> Result<Ron, crate::error::Error> {
-    let pt: pt::Ron = ron::ron(input).map_err(ErrorTree::calc_locations)?;
+    let pt: pt::Ron = ron::ron(input)
+        .map_err(ErrorTree::calc_locations)
+        .map_err(Error::from)
+        .map_err(|e| e.context_file_content(input.to_owned()))?;
     let ast: ast::Ron = pt.into();
 
     Ok(ast)

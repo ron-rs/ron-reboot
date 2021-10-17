@@ -34,19 +34,22 @@ fn fractional_part(input: Input) -> IResultLookahead<(u64, u16)> {
     })(input)
 }
 
-fn decimal_unsigned_no_start_with_zero(input: Input) -> IResultLookahead<u64> {
+fn decimal_unsigned_no_leading_zero(input: Input) -> IResultLookahead<u64> {
     map_res(
-        recognize(preceded(
-            take1_if(is_digit_first, Expectation::DigitFirst),
-            take_while(is_digit),
+        recognize(alt2(
+            recognize(lookahead(one_char('0'))),
+            preceded(
+                take1_if(is_digit_first, Expectation::DigitFirst),
+                take_while(is_digit),
+            ),
         )),
         parse_u64,
     )(input)
 }
 
 pub fn unsigned_integer(input: Input) -> IResultLookahead<UnsignedInteger> {
-    map(decimal_unsigned_no_start_with_zero, |number| {
-        UnsignedInteger { number }
+    map(decimal_unsigned_no_leading_zero, |number| UnsignedInteger {
+        number,
     })(input)
 }
 
@@ -125,7 +128,7 @@ mod tests {
 
     #[test]
     fn exprs_int() {
-        for input in ["-4123", "111", "+821"] {
+        for input in ["-4123", "111", "+821", "0"] {
             assert_eq!(eval!(integer, input).to_expr(), eval!(expr, input));
         }
     }
