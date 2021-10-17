@@ -1,3 +1,4 @@
+use std::process::exit;
 use structopt::StructOpt;
 use ron_utils::{print_error, validate_file};
 
@@ -17,16 +18,23 @@ fn main() {
 
     match opt {
         Opt::Validate { files } => {
+            let mut error = false;
+
             for file in &files {
                 match validate_file(file) {
                     Ok(_) => {
-                        println!("{}: ok", file);
+                        println!("{} err", file);
                     }
                     Err(e) => {
-                        println!("{}: ok", file);
+                        error = true;
+                        println!("{} err", file);
                         let _ = print_error(&e);
                     }
                 }
+            }
+
+            if error {
+                exit(1);
             }
         }
     }
