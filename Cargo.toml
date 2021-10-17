@@ -1,7 +1,12 @@
 [package]
 name = "ron-reboot"
-version = "0.1.0"
+description = "Highly experimental RON parser"
+version = "0.1.0-preview1"
 edition = "2018"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/ron-reboot"
+homepage = "https://github.com/ron-rs/ron-reboot"
+repository = "https://github.com/ron-rs/ron-reboot"
 
 [dependencies]
 serde = { version = "1.0.130", optional = true }
@@ -20,7 +25,7 @@ serde1_ast_derives = ["serde/derive"] # Serialize derives for abstract syntax tr
 test = ["serde1_ast_derives", "utf8_parser_serde1"]
 
 [dev-dependencies]
-ron = "*"
+ron = "0.6.5"
 serde = { version = "1", features = ["derive"] }
 
 [[example]]
