@@ -1,5 +1,6 @@
 [package]
 name = "ron-utils"
+description = "Utilities for working with Rusty Object Notation (RON) files"
 version = "0.1.0-preview1"
 edition = "2018"
 license = "Unlicense"
