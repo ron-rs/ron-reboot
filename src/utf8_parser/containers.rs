@@ -4,10 +4,11 @@ use crate::{
         basic::one_char,
         combinators,
         combinators::{
-            comma_list0, comma_list1, context, cut, lookahead, map, opt, pair, terminated,
+            alt2, comma_list0, comma_list1, context, cut, lookahead, map, opt, pair, spanned,
+            terminated,
         },
         primitive::ident,
-        pt::{Expr, Ident, KeyValue, List, Map, Spanned, Struct},
+        pt::{Expr, Ident, KeyValue, List, Map, Spanned, Struct, Tagged, Tuple, Untagged},
         IResultLookahead, Input,
     },
 };
@@ -27,19 +28,14 @@ fn opt_ident(input: Input) -> IResultLookahead<Option<Spanned<Ident>>> {
     opt(combinators::spanned(lookahead(ident::ident)))(input)
 }
 
-pub fn r#struct(input: Input) -> IResultLookahead<Struct> {
-    let untagged_struct = combinators::spanned(combinators::block(
-        '(',
-        combinators::ws(comma_list1(ident_val_pair)),
-        ')',
-    ));
-    // Need to create temp var for borrow checker
-    let x = map(
-        context("struct", pair(opt_ident, untagged_struct)),
-        |(ident, fields)| Struct { fields, ident },
-    )(input);
+fn untagged_struct_inner(input: Input) -> IResultLookahead<Vec<Spanned<KeyValue<Ident>>>> {
+    combinators::block('(', combinators::ws(comma_list1(ident_val_pair)), ')')(input)
+}
 
-    x
+pub fn untagged_struct(input: Input) -> IResultLookahead<Struct> {
+    map(context("struct", untagged_struct_inner), |fields| Struct {
+        fields,
+    })(input)
 }
 
 fn key_val_pair(input: Input) -> IResultLookahead<KeyValue<Expr>> {
@@ -57,11 +53,7 @@ pub fn rmap(input: Input) -> IResultLookahead<Map> {
     map(
         context(
             "map",
-            combinators::spanned(combinators::block(
-                '{',
-                combinators::ws(comma_list0(key_val_pair)),
-                '}',
-            )),
+            combinators::block('{', combinators::ws(comma_list0(key_val_pair)), '}'),
         ),
         |fields| Map { entries: fields },
     )(input)
@@ -81,13 +73,31 @@ pub fn list(input: Input) -> IResultLookahead<List> {
     )(input)
 }
 
-pub fn tuple(input: Input) -> IResultLookahead<List> {
+pub fn tagged(input: Input) -> IResultLookahead<Tagged> {
+    context(
+        "tagged expr",
+        map(
+            pair(
+                spanned(ident),
+                spanned(alt2(
+                    map(untagged_struct, Untagged::Struct),
+                    map(tuple, |_| todo!()),
+                )),
+            ),
+            |(ident, untagged)| Tagged { ident, untagged },
+        ),
+    )(input)
+}
+
+pub fn tuple(input: Input) -> IResultLookahead<Tuple> {
     context(
         "tuple",
-        combinators::block(
-            '(',
-            map(comma_list0(utf8_parser::expr), |elements| List { elements }),
-            ')',
+        map(
+            pair(
+                opt_ident,
+                combinators::block('(', comma_list0(utf8_parser::expr), ')'),
+            ),
+            |(ident, elements)| Tuple { ident, elements },
         ),
     )(input)
 }

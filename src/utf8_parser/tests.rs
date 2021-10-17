@@ -1,5 +1,6 @@
 use crate::utf8_parser::{
     combinators::{comma_list0, lookahead},
+    containers::tagged,
     pt::{Expr, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger},
     test_util::eval,
     *,
@@ -9,9 +10,9 @@ use crate::utf8_parser::{
 fn trailing_commas() {
     let input = "Transform(pos: 5,)";
     assert_eq!(
-        eval!(r#struct, input),
-        Struct::new_test(
-            Some("Transform"),
+        eval!(tagged, input),
+        Struct::new_tagged(
+            "Transform",
             vec![("pos", UnsignedInteger::new(5).to_expr())]
         )
     );
@@ -26,7 +27,7 @@ fn missing_colon() {
 #[test]
 fn exprs_struct() {
     let input = "Pos(x:-3,y:4)";
-    assert_eq!(Expr::Struct(eval!(r#struct, input)), eval!(expr, input));
+    assert_eq!(Expr::Tagged(eval!(tagged, input)), eval!(expr, input));
 }
 
 #[test]
@@ -109,25 +110,23 @@ fn maps() {
     let expr_int_n3: Expr = int_n3.to_expr();
     let expr_int_4: Expr = int_4.to_expr();
 
-    let basic_struct = Struct::new_test(Some("Pos"), vec![("x", expr_int_n3), ("y", expr_int_4)]);
+    let basic_struct = Struct::new_tagged("Pos", vec![("x", expr_int_n3), ("y", expr_int_4)]);
 
     let basic_map = Map::new_test(vec![
         (
             Expr::Str("my map key :)"),
-            Expr::Struct(basic_struct.clone()),
+            Expr::Tagged(basic_struct.clone()),
         ),
-        (Expr::Struct(basic_struct), Expr::Bool(false)),
+        (Expr::Tagged(basic_struct), Expr::Bool(false)),
     ]);
 
     assert_eq!(
         eval!(
             rmap,
-            r#"
-{
+            r#"{
     "my map key :)": Pos(x: -3, y: 4),
     Pos(x: -3, y: 4): false,
-}
-"#
+}"#
         ),
         basic_map
     );
@@ -140,13 +139,13 @@ fn untagged_structs() {
     let expr_int_n3: Expr = int_n3.to_expr();
     let expr_int_4: Expr = int_4.to_expr();
 
-    let basic_struct = Struct::new_test(None, vec![("x", expr_int_n3), ("y", expr_int_4)]);
+    let basic_struct = Struct::new_test(vec![("x", expr_int_n3), ("y", expr_int_4)]);
 
-    assert_eq!(eval!(r#struct, "(x:-3,y:4)"), basic_struct);
-    assert_eq!(eval!(r#struct, "(x:-3,y:4,)"), basic_struct);
-    assert_eq!(eval!(r#struct, "(x:-3,y:4,  )"), basic_struct);
+    assert_eq!(eval!(untagged_struct, "(x:-3,y:4)"), basic_struct);
+    assert_eq!(eval!(untagged_struct, "(x:-3,y:4,)"), basic_struct);
+    assert_eq!(eval!(untagged_struct, "(x:-3,y:4,  )"), basic_struct);
     assert_eq!(
-        eval!(r#struct, "(\t  x: -3, y       : 4\n\n)"),
+        eval!(untagged_struct, "(\t  x: -3, y       : 4\n\n)"),
         basic_struct
     );
 }
@@ -158,20 +157,20 @@ fn structs() {
     let expr_int_n3: Expr = int_n3.to_expr();
     let expr_int_4: Expr = int_4.to_expr();
 
-    let basic_struct = Struct::new_test(Some("Pos"), vec![("x", expr_int_n3), ("y", expr_int_4)]);
+    let basic_struct = Struct::new_tagged("Pos", vec![("x", expr_int_n3), ("y", expr_int_4)]);
 
-    assert_eq!(eval!(r#struct, "Pos(x:-3,y:4)"), basic_struct);
-    assert_eq!(eval!(r#struct, "Pos(x:-3,y:4,)"), basic_struct);
-    assert_eq!(eval!(r#struct, "Pos(x:-3,y:4,  )"), basic_struct);
+    assert_eq!(eval!(tagged, "Pos(x:-3,y:4)"), basic_struct);
+    assert_eq!(eval!(tagged, "Pos(x:-3,y:4,)"), basic_struct);
+    assert_eq!(eval!(tagged, "Pos(x:-3,y:4,  )"), basic_struct);
     assert_eq!(
-        eval!(r#struct, "Pos  (\tx: -3, y       : 4\n\n)"),
+        eval!(tagged, "Pos  (\tx: -3, y       : 4\n\n)"),
         basic_struct
     );
 }
 
 #[test]
 fn excl_mark() {
-    let err = eval!(@result r#struct, r#"Example(
+    let err = eval!(@result tagged, r#"Example(
     xyz: Asdf(
         x: 4, yalala: !
     ),

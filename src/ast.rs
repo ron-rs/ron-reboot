@@ -245,36 +245,12 @@ impl<'a, K: 'a> KeyValue<'a, K> {
     }
 }
 
-pub type SpannedKvs<'a, K> = Spanned<Vec<Spanned<KeyValue<'a, K>>>>;
+pub type SpannedKvs<'a, K> = Vec<Spanned<KeyValue<'a, K>>>;
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Struct<'a> {
-    pub ident: Option<Spanned<Ident<'a>>>,
     pub fields: SpannedKvs<'a, Ident<'a>>,
-}
-
-impl<'a> Struct<'a> {
-    #[cfg(test)]
-    pub fn new(
-        ident: Option<Spanned<Ident<'a>>>,
-        fields: Spanned<Vec<Spanned<KeyValue<'a, Ident<'a>>>>>,
-    ) -> Self {
-        Struct { ident, fields }
-    }
-
-    #[cfg(test)]
-    pub fn new_test(ident: Option<&'a str>, fields: Vec<(&'a str, Expr<'a>)>) -> Self {
-        Struct::new(
-            ident.map(Ident).map(Spanned::new_test),
-            Spanned::new_test(
-                fields
-                    .into_iter()
-                    .map(|field| Spanned::new_test(KeyValue::new_test(Ident(field.0), field.1)))
-                    .collect(),
-            ),
-        )
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -287,15 +263,14 @@ impl<'a> Map<'a> {
     #[cfg(test)]
     pub fn new_test(kvs: Vec<(Expr<'a>, Expr<'a>)>) -> Self {
         Map {
-            entries: Spanned::new_test(
-                kvs.into_iter()
-                    .map(|(k, v)| KeyValue {
-                        key: Spanned::new_test(k),
-                        value: Spanned::new_test(v),
-                    })
-                    .map(Spanned::new_test)
-                    .collect(),
-            ),
+            entries: kvs
+                .into_iter()
+                .map(|(k, v)| KeyValue {
+                    key: Spanned::new_test(k),
+                    value: Spanned::new_test(v),
+                })
+                .map(Spanned::new_test)
+                .collect(),
         }
     }
 }
@@ -317,10 +292,41 @@ impl<'a> List<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
+pub struct Tuple<'a> {
+    pub ident: Option<Spanned<Ident<'a>>>,
+    pub elements: Vec<Spanned<Expr<'a>>>,
+}
+
+impl<'a> Tuple<'a> {
+    #[cfg(test)]
+    pub fn new_test(ident: Option<&'a str>, kvs: Vec<Expr<'a>>) -> Self {
+        Tuple {
+            ident: ident.map(Ident).map(Spanned::new_test),
+            elements: kvs.into_iter().map(Spanned::new_test).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
+pub enum Untagged<'a> {
+    Struct(Struct<'a>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
+pub struct Tagged<'a> {
+    pub ident: Spanned<Ident<'a>>,
+    pub untagged: Spanned<Untagged<'a>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Expr<'a> {
     Unit,
+    Tagged(Tagged<'a>),
     Bool(bool),
-    Tuple(List<'a>),
+    Tuple(Tuple<'a>),
     List(List<'a>),
     Map(Map<'a>),
     Struct(Struct<'a>),

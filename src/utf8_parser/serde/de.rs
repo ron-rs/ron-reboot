@@ -8,8 +8,8 @@ use serde::{
 //use crate::error::ErrorKind::{ExpectedBool, ExpectedStrGotEscapes, ExpectedString};
 //use crate::error::{ron_err, ErrorKind};
 use crate::{
+    ast::Untagged,
     error::Error,
-    location::Location,
     utf8_parser::{
         ast,
         ast::{Expr::*, Integer},
@@ -69,11 +69,11 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                 iter: l.elements.iter_mut(),
             }),
             Map(mut m) => visitor.visit_map(MapDeserializer {
-                iter: m.entries.value.iter_mut(),
+                iter: m.entries.iter_mut(),
                 value: None,
             }),
             Struct(mut s) => visitor.visit_map(StructDeserializer {
-                iter: s.fields.value.iter_mut(),
+                iter: s.fields.iter_mut(),
                 value: None,
             }),
             Integer(i) => match i {
@@ -83,6 +83,15 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             Str(s) => visitor.visit_borrowed_str(s),
             String(s) => visitor.visit_string(s),
             Decimal(d) => visitor.visit_f64(d.into()),
+            Tagged(t) => match t.untagged.value {
+                Untagged::Struct(mut s) => {
+                    // TODO: how to pass tag?
+                    visitor.visit_map(StructDeserializer {
+                        iter: s.fields.iter_mut(),
+                        value: None,
+                    })
+                }
+            },
         };
 
         res.map_err(|e| e.context_loc(self.expr.start.into(), self.expr.end.into()))
@@ -146,8 +155,8 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
     {
         match self.iter.next() {
             Some(x) => {
-                let start_loc = Location::from(x.start);
-                let end_loc = Location::from(x.end);
+                let start_loc = x.start;
+                let end_loc = x.end;
                 self.value = Some(&mut x.value.value);
 
                 seed.deserialize(IdentDeserializer {
@@ -217,8 +226,8 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
     {
         match self.iter.next() {
             Some(x) => {
-                let start_loc = Location::from(x.start);
-                let end_loc = Location::from(x.end);
+                let start_loc = x.start;
+                let end_loc = x.end;
 
                 self.value = Some(&mut x.value.value);
 
@@ -297,3 +306,15 @@ impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {
         tuple_struct map struct enum identifier ignored_any
     }
 }
+
+/*
+impl<'a, 'de> EnumAccess<'de> for IdentDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+    type Variant = ();
+
+    fn variant_seed<V>(self, seed: V) -> Result<(serde::de::Value, Self::Variant), Self::Error> where V: DeserializeSeed<'de> {
+        todo!()
+    }
+}
+
+ */

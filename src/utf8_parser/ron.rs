@@ -7,10 +7,11 @@ use crate::utf8_parser::{
         alt2, comma_list1, context, context_final, cut, delimited, lookahead, many0, map, pair,
         preceded, take1_if,
     },
+    containers::tagged,
     decimal, escaped_string, list,
     pt::{Attribute, Expr, Extension, Ron, SignedInteger, UnsignedInteger},
-    r#struct, rmap, signed_integer, tuple, unescaped_str, unsigned_integer, ErrorTree, Expectation,
-    IResultLookahead, Input, InputParseErr, InputParseError,
+    rmap, signed_integer, tuple, unescaped_str, unsigned_integer, untagged_struct, ErrorTree,
+    Expectation, IResultLookahead, Input, InputParseErr, InputParseError,
 };
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {
@@ -110,9 +111,10 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     // beforehand. However, for error collection & possibly performance reasons this seems to be
     // the better solution right now.
     match expr_class {
-        ExprClass::StructTuple => {
-            cut(alt2(map(r#struct, Expr::Struct), map(tuple, Expr::Tuple)))(input)
-        }
+        ExprClass::StructTuple => cut(alt2(
+            map(untagged_struct, Expr::Struct),
+            map(tuple, Expr::Tuple),
+        ))(input),
         ExprClass::Map => map(rmap, Expr::Map)(input),
         ExprClass::StrString => alt2(
             map(lookahead(unescaped_str), Expr::Str),
@@ -129,7 +131,7 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
             map(decimal, Expr::Decimal),
             map(unsigned_integer, UnsignedInteger::to_expr),
         )(input),
-        ExprClass::LeadingIdent => map(r#struct, Expr::Struct)(input),
+        ExprClass::LeadingIdent => map(tagged, Expr::Tagged)(input),
     }
 }
 

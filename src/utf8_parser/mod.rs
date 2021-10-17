@@ -2,7 +2,7 @@ pub use self::error::{ErrorTree, InputParseError};
 #[cfg(feature = "utf8_parser_serde1")]
 pub use self::serde::from_str;
 use self::{
-    containers::{list, r#struct, rmap, tuple},
+    containers::{list, rmap, tuple, untagged_struct},
     error::{BaseErrorKind, Expectation, InputParseErr},
     input::Input,
     primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},

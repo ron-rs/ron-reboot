@@ -65,7 +65,7 @@ error: invalid type: map, expected a string
 | Goal                                             | Status                                             |
 |--------------------------------------------------|----------------------------------------------------|
 | Parser generating AST                            | :hourglass_flowing_sand: working, 90% complete     |
-| Parser generating beautiful errors               | :hourglass_flowing_sand: in progress, 60% complete |
+| Parser generating beautiful errors               | :hourglass_flowing_sand: in progress, 70% complete |
 | Replace nom combinators                          | :heavy_check_mark: done                            |
 | Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                     |
 | Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 90% complete     |

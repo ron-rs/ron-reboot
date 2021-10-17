@@ -12,7 +12,7 @@ Prefab(
                 ),
             ]
         ),
-        Entity((
+        ((
             id: "df6df3fd-4a0c-4640-bd71-7969f1e568a1",
             components: [
                 (

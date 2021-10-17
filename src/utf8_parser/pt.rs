@@ -2,21 +2,14 @@
 
 use std::mem::replace;
 
-#[cfg(feature = "serde1_ast_derives")]
-use serde::Serialize;
-
 pub use crate::ast::Extension;
 use crate::{ast, utf8_parser::input::Input};
 
 /// IMPORTANT: Equality operators do NOT compare the start & end spans!
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
-#[cfg_attr(feature = "serde1_ast_derives", serde(transparent))]
 pub struct Spanned<'a, T> {
-    #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
     pub start: Input<'a>,
     pub value: T,
-    #[cfg_attr(feature = "serde1_ast_derives", serde(skip))]
     pub end: Input<'a>,
 }
 
@@ -65,7 +58,6 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Ron<'a> {
     pub attributes: Vec<Spanned<'a, Attribute<'a>>>,
     pub expr: Spanned<'a, Expr<'a>>,
@@ -81,7 +73,6 @@ impl<'a> From<Ron<'a>> for ast::Ron<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Attribute<'a> {
     Enable(Spanned<'a, Vec<Spanned<'a, Extension>>>),
 }
@@ -107,7 +98,6 @@ impl<'a> From<Attribute<'a>> for ast::Attribute {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Ident<'a>(pub &'a str);
 
 impl<'a> Ident<'a> {
@@ -123,7 +113,6 @@ impl<'a> From<Ident<'a>> for ast::Ident<'a> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Sign {
     Positive,
     Negative,
@@ -154,7 +143,6 @@ impl From<Sign> for ast::Sign {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct UnsignedInteger {
     pub number: u64,
 }
@@ -177,7 +165,6 @@ impl From<UnsignedInteger> for ast::UnsignedInteger {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct SignedInteger {
     pub sign: Sign,
     pub number: u64,
@@ -204,7 +191,6 @@ impl From<SignedInteger> for ast::SignedInteger {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Integer {
     Signed(SignedInteger),
     Unsigned(UnsignedInteger),
@@ -235,7 +221,6 @@ impl From<Integer> for ast::Integer {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Decimal {
     pub sign: Option<Sign>,
     pub whole: Option<u64>,
@@ -275,7 +260,6 @@ impl From<Decimal> for ast::Decimal {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct KeyValue<'a, K: 'a> {
     pub key: Spanned<'a, K>,
     pub value: Spanned<'a, Expr<'a>>,
@@ -303,52 +287,42 @@ where
     }
 }
 
-pub type SpannedKvs<'a, K> = Spanned<'a, Vec<Spanned<'a, KeyValue<'a, K>>>>;
+pub type SpannedKvs<'a, K> = Vec<Spanned<'a, KeyValue<'a, K>>>;
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Struct<'a> {
-    pub ident: Option<Spanned<'a, Ident<'a>>>,
     pub fields: SpannedKvs<'a, Ident<'a>>,
 }
 
 impl<'a> Struct<'a> {
     #[cfg(test)]
-    pub fn new(
-        ident: Option<Spanned<'a, Ident<'a>>>,
-        fields: Spanned<'a, Vec<Spanned<'a, KeyValue<'a, Ident<'a>>>>>,
-    ) -> Self {
-        Struct { ident, fields }
+    pub fn new_test(fields: Vec<(&'a str, Expr<'a>)>) -> Self {
+        Struct {
+            fields: fields
+                .into_iter()
+                .map(|field| Spanned::new_test(KeyValue::new_test(Ident(field.0), field.1)))
+                .collect(),
+        }
     }
 
     #[cfg(test)]
-    pub fn new_test(ident: Option<&'a str>, fields: Vec<(&'a str, Expr<'a>)>) -> Self {
-        Struct::new(
-            ident.map(Ident).map(Spanned::new_test),
-            Spanned::new_test(
-                fields
-                    .into_iter()
-                    .map(|field| Spanned::new_test(KeyValue::new_test(Ident(field.0), field.1)))
-                    .collect(),
-            ),
-        )
+    pub fn new_tagged(ident: &'a str, fields: Vec<(&'a str, Expr<'a>)>) -> Tagged<'a> {
+        Tagged {
+            ident: Spanned::new_test(Ident(ident)),
+            untagged: Spanned::new_test(Untagged::Struct(Struct::new_test(fields))),
+        }
     }
 }
 
 impl<'a> From<Struct<'a>> for ast::Struct<'a> {
     fn from(m: Struct<'a>) -> Self {
         ast::Struct {
-            ident: m.ident.map(Into::into),
-            fields: m
-                .fields
-                .map(|v| v.into_iter().map(Into::into).collect::<Vec<_>>())
-                .into(),
+            fields: m.fields.into_iter().map(Into::into).collect::<Vec<_>>(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Map<'a> {
     pub entries: SpannedKvs<'a, Expr<'a>>,
 }
@@ -357,15 +331,14 @@ impl<'a> Map<'a> {
     #[cfg(test)]
     pub fn new_test(kvs: Vec<(Expr<'a>, Expr<'a>)>) -> Self {
         Map {
-            entries: Spanned::new_test(
-                kvs.into_iter()
-                    .map(|(k, v)| KeyValue {
-                        key: Spanned::new_test(k),
-                        value: Spanned::new_test(v),
-                    })
-                    .map(Spanned::new_test)
-                    .collect(),
-            ),
+            entries: kvs
+                .into_iter()
+                .map(|(k, v)| KeyValue {
+                    key: Spanned::new_test(k),
+                    value: Spanned::new_test(v),
+                })
+                .map(Spanned::new_test)
+                .collect(),
         }
     }
 }
@@ -373,16 +346,12 @@ impl<'a> Map<'a> {
 impl<'a> From<Map<'a>> for ast::Map<'a> {
     fn from(m: Map<'a>) -> Self {
         ast::Map {
-            entries: m
-                .entries
-                .map(|v| v.into_iter().map(Into::into).collect::<Vec<_>>())
-                .into(),
+            entries: m.entries.into_iter().map(Into::into).collect::<Vec<_>>(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct List<'a> {
     pub elements: Vec<Spanned<'a, Expr<'a>>>,
 }
@@ -405,11 +374,64 @@ impl<'a> From<List<'a>> for ast::List<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
+pub struct Tuple<'a> {
+    pub ident: Option<Spanned<'a, Ident<'a>>>,
+    pub elements: Vec<Spanned<'a, Expr<'a>>>,
+}
+
+impl<'a> Tuple<'a> {
+    #[cfg(test)]
+    pub fn new_test(ident: Option<&'a str>, kvs: Vec<Expr<'a>>) -> Self {
+        Tuple {
+            ident: ident.map(Ident).map(Spanned::new_test),
+            elements: kvs.into_iter().map(Spanned::new_test).collect(),
+        }
+    }
+}
+
+impl<'a> From<Tuple<'a>> for ast::Tuple<'a> {
+    fn from(l: Tuple<'a>) -> Self {
+        ast::Tuple {
+            ident: l.ident.map(Into::into),
+            elements: l.elements.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Untagged<'a> {
+    Struct(Struct<'a>),
+}
+
+impl<'a> From<Untagged<'a>> for ast::Untagged<'a> {
+    fn from(u: Untagged<'a>) -> Self {
+        match u {
+            Untagged::Struct(s) => ast::Untagged::Struct(s.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tagged<'a> {
+    pub ident: Spanned<'a, Ident<'a>>,
+    pub untagged: Spanned<'a, Untagged<'a>>,
+}
+
+impl<'a> From<Tagged<'a>> for ast::Tagged<'a> {
+    fn from(t: Tagged<'a>) -> Self {
+        ast::Tagged {
+            ident: t.ident.into(),
+            untagged: t.untagged.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr<'a> {
     Unit,
+    Tagged(Tagged<'a>),
     Bool(bool),
-    Tuple(List<'a>),
+    Tuple(Tuple<'a>),
     List(List<'a>),
     Map(Map<'a>),
     Struct(Struct<'a>),
@@ -432,6 +454,7 @@ impl<'a> From<Expr<'a>> for ast::Expr<'a> {
     fn from(e: Expr<'a>) -> Self {
         match e {
             Expr::Unit => ast::Expr::Unit,
+            Expr::Tagged(t) => ast::Expr::Tagged(t.into()),
             Expr::Bool(x) => ast::Expr::Bool(x),
             Expr::Tuple(x) => ast::Expr::Tuple(x.into()),
             Expr::List(x) => ast::Expr::List(x.into()),
