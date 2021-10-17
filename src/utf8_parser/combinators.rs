@@ -589,18 +589,31 @@ where
     delimited(multispace0, inner, multispace0)
 }
 
+/// Like
+///
+/// ```text
+/// delimited(
+///     one_char(start_tag),
+///     inner,
+///     one_char(end_tag),
+/// )
+/// ```
+///
+/// but respects the discarded error of `inner` in case of error
+/// and forgets it in case of success.
 pub fn block<'a, F: 'a, O>(
     start_tag: char,
-    inner: F,
+    mut inner: F,
     end_tag: char,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<O>
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
-    #[allow(unused_parens)]
-    delimited(
-        one_char(start_tag),
-        inner,
-        /*TODO: conditional cut*/ (one_char(end_tag)),
-    )
+    move |input| {
+        let ok = preceded(one_char(start_tag), &mut inner)(input)?;
+        match one_char(end_tag)(ok.remaining) {
+            Ok(ok_end) => Ok(ok_end.replace(ok.parsed)),
+            Err(e) => Err(ok.discarded_error.map(InputParseErr::Recoverable).unwrap_or(e)), // TODO: maybe alt?
+        }
+    }
 }
