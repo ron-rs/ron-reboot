@@ -62,13 +62,15 @@ error: invalid type: map, expected a string
 
 ## Goals / Progress
 
-| Goal                                             | Status                                         |
-|--------------------------------------------------|------------------------------------------------|
-| Parser generating AST                            | :hourglass_flowing_sand: working, 90% complete |
-| Replace nom combinators                          | :heavy_check_mark: done                        |
-| Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                 |
-| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 90% complete |
-| `ron-edit` (format & comments preserving writer) | :x: to be done                                 |
+| Goal                                             | Status                                             |
+|--------------------------------------------------|----------------------------------------------------|
+| Parser generating AST                            | :hourglass_flowing_sand: working, 90% complete     |
+| Parser generating beautiful errors               | :hourglass_flowing_sand: in progress, 60% complete |
+| Replace nom combinators                          | :heavy_check_mark: done                            |
+| Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                     |
+| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 90% complete     |
+| Serde Deserializer generating beautiful errors   | :heavy_check_mark: done                            |
+| `ron-edit` (format & comments preserving writer) | :x: to be done                                     |
 
 ## TODO list
 
