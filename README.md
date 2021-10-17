@@ -77,3 +77,8 @@ error: invalid type: map, expected a string
 * Raw identifiers
 * Raw strings
 * Comments
+
+## Contributions
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you,
+shall be licensed according to the license of this project (The Unlicense), without any additional terms or conditions.
