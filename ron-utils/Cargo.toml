@@ -1,0 +1,21 @@
+[package]
+name = "ron-utils"
+version = "0.1.0-preview1"
+edition = "2018"
+license = "Unlicense"
+documentation = "https://docs.rs/ron-utils"
+homepage = "https://github.com/ron-rs/ron-reboot"
+repository = "https://github.com/ron-rs/ron-reboot"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "ron"
+path = "src/main.rs"
+
+[dependencies]
+ron-reboot = { version = "0.1.0-preview2", path = "../", default-features = false, features = ["utf8_parser"] }
+serde = { version = "1.0.130", optional = true }
+structopt = "0.3.23"
+
+[features]
+serde1 = ["serde", "ron-reboot/utf8_parser_serde1"]

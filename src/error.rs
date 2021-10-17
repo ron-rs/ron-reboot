@@ -1,7 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
-    io::stdout,
 };
+use std::io::stderr;
 
 use crate::location::Location;
 
@@ -74,6 +74,15 @@ impl Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error {
+            kind: ErrorKind::IoError(e.to_string()),
+            context: None,
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
 impl serde::de::Error for Error {
     fn custom<T>(msg: T) -> Self
@@ -113,7 +122,7 @@ impl std::error::Error for Error {}
 pub fn print_error(e: &Error) -> std::io::Result<()> {
     use std::io::Write;
 
-    let f = stdout();
+    let f = stderr();
     let mut f = f.lock();
     match e.context.as_ref() {
         Some(context) => match (
@@ -193,6 +202,7 @@ pub fn print_error(e: &Error) -> std::io::Result<()> {
 
                 writeln!(f, "{} |", col_ws_rep)
             }
+            (_, Some(file_name), _) => writeln!(f, "file \"{}\": {}", file_name, e),
             _ => writeln!(f, "{}", e),
         },
         _ => writeln!(f, "{}", e),
@@ -209,6 +219,7 @@ pub enum ErrorKind {
 
     ParseError(String),
 
+    IoError(String),
     Custom(String),
 }
 
@@ -222,6 +233,7 @@ impl Display for ErrorKind {
             ErrorKind::ExpectedString => write!(f, "expected string"),
             ErrorKind::ExpectedList => write!(f, "expected list"),
             ErrorKind::ParseError(e) => write!(f, "parsing error: {}", e),
+            ErrorKind::IoError(e) => write!(f, "io error: {}", e),
             ErrorKind::Custom(s) => write!(f, "{}", s),
         }
     }

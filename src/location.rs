@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[cfg(test)]
 use crate::utf8_parser::test_util::TestMockNew;
 
@@ -6,6 +8,12 @@ pub struct Location {
     pub line: u32,
     /// UTF-8 column
     pub column: u32,
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
 }
 
 #[cfg(test)]

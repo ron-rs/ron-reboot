@@ -65,12 +65,6 @@ impl<'a> From<Input<'a>> for Location {
     }
 }
 
-impl Display for Location {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
-    }
-}
-
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Input<'a> {
     offset: Offset,

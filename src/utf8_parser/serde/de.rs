@@ -117,7 +117,8 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                 Err(Error::custom(format!(
                     "invalid struct type: `{}`, expected `{}`",
                     ident.value.0, name
-                )).context_loc(ident.start, ident.end))
+                ))
+                .context_loc(ident.start, ident.end))
             }
             ast::Expr::Tagged(ast::Tagged {
                 untagged:

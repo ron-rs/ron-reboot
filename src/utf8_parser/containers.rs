@@ -4,8 +4,7 @@ use crate::{
         basic::{nothing, one_char},
         combinators,
         combinators::{
-            alt2, comma_list0, comma_list1, context, cut, lookahead, map, pair, spanned,
-            terminated,
+            alt2, comma_list0, comma_list1, context, cut, lookahead, map, pair, spanned, terminated,
         },
         primitive::ident,
         pt::{Expr, Ident, KeyValue, List, Map, Spanned, Struct, Tagged, Tuple, Untagged},

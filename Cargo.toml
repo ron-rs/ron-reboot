@@ -1,12 +1,15 @@
 [package]
 name = "ron-reboot"
 description = "Highly experimental RON parser"
-version = "0.1.0-preview2"
+version = "0.1.0-preview3"
 edition = "2018"
 license = "Unlicense"
 documentation = "https://docs.rs/ron-reboot"
 homepage = "https://github.com/ron-rs/ron-reboot"
 repository = "https://github.com/ron-rs/ron-reboot"
+
+[workspace]
+members = ["ron-utils"]
 
 [dependencies]
 serde = { version = "1.0.130", optional = true }

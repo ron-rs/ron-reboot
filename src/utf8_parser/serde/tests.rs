@@ -55,7 +55,9 @@ fn mixed_enum_newtype() {
 NewtypeVariant("Newtypes are a special case in serde")
 "#
         ),
-        Ok(MyEnum::NewtypeVariant("Newtypes are a special case in serde".to_owned()))
+        Ok(MyEnum::NewtypeVariant(
+            "Newtypes are a special case in serde".to_owned()
+        ))
     );
 }
 
