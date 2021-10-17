@@ -26,7 +26,7 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResultLookahead<char> {
         (&c, b)
     }) {
         Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c)),
-        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
+        _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::Char(c)),
         })),
@@ -44,7 +44,7 @@ pub fn one_of_chars<O: Clone>(
         (t, b)
     }) {
         Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
+        _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
         })),
@@ -61,7 +61,7 @@ pub fn one_of_tags<O: Clone>(
         .find(|(_, &t)| input.fragment().starts_with(t))
     {
         Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
-        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
+        _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),
         })),

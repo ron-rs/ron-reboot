@@ -21,14 +21,14 @@ fn parse_unicode(input: Input) -> IResultLookahead<char> {
 
     map_res(parse_delimited_hex, move |hex: Input| {
         let parsed_u32 = u32::from_str_radix(hex.fragment(), 16).map_err(|e| {
-            InputParseErr::Fatal(ErrorTree::Base {
+            InputParseErr::fatal(ErrorTree::Base {
                 location: input,
                 kind: BaseErrorKind::External(Box::new(e)),
             })
         })?;
 
         std::char::from_u32(parsed_u32).ok_or_else(|| {
-            InputParseErr::Fatal(ErrorTree::expected(
+            InputParseErr::fatal(ErrorTree::expected(
                 input,
                 Expectation::UnicodeHexSequence { got: parsed_u32 },
             ))

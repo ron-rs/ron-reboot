@@ -1,7 +1,7 @@
 use crate::utf8_parser::{
-    ast::Ident,
     char_categories::{is_ident_first_char, is_ident_other_char},
     combinators::{context, map, preceded, recognize, take1_if, take_while},
+    pt::Ident,
     Expectation, IResultLookahead, Input,
 };
 

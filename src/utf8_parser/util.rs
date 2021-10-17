@@ -5,7 +5,7 @@ use crate::utf8_parser::{
 
 #[inline]
 pub fn base_err<T>(input: Input, expectation: Expectation) -> IResultLookahead<T> {
-    Err(InputParseErr::Fatal(ErrorTree::expected(
+    Err(InputParseErr::fatal(ErrorTree::expected(
         input,
         expectation,
     )))
@@ -13,7 +13,7 @@ pub fn base_err<T>(input: Input, expectation: Expectation) -> IResultLookahead<T
 
 #[inline]
 pub fn base_err_res<T>(input: Input, expectation: Expectation) -> OutputResult<T> {
-    Err(InputParseErr::Fatal(ErrorTree::expected(
+    Err(InputParseErr::fatal(ErrorTree::expected(
         input,
         expectation,
     )))

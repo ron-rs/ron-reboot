@@ -1,8 +1,8 @@
 use crate::utf8_parser::{
-    ast::Spanned,
     basic,
     basic::{multispace0, one_char},
     input::position,
+    pt::Spanned,
     util, BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
     InputParseError, OutputResult,
 };
@@ -86,7 +86,7 @@ where
 {
     move |input: Input| match parser(input) {
         Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => {
-            Err(InputParseErr::Recoverable(e))
+            Err(InputParseErr::recoverable(e))
         }
         Ok(x) => Ok(x),
     }
@@ -98,7 +98,7 @@ where
 {
     move |input: Input| match parser(input) {
         Err(InputParseErr::Recoverable(e)) | Err(InputParseErr::Fatal(e)) => {
-            Err(InputParseErr::Fatal(e))
+            Err(InputParseErr::fatal(e))
         }
         Ok(x) => Ok(x),
     }
@@ -112,7 +112,7 @@ where
     move |input: Input| match f(input) {
         Err(InputParseErr::Recoverable(first)) => match g(input) {
             Err(InputParseErr::Recoverable(second)) => {
-                Err(InputParseErr::Recoverable(ErrorTree::alt(first, second)))
+                Err(InputParseErr::recoverable(ErrorTree::alt(first, second)))
             }
             res => res,
         },
@@ -144,10 +144,10 @@ where
 {
     move |i: Input| match f(i) {
         Ok(o) => Ok(o),
-        Err(InputParseErr::Recoverable(e)) => Err(InputParseErr::Recoverable(
+        Err(InputParseErr::Recoverable(e)) => Err(InputParseErr::recoverable(
             InputParseError::add_context(i, context, e),
         )),
-        Err(InputParseErr::Fatal(e)) => Err(InputParseErr::Fatal(InputParseError::add_context(
+        Err(InputParseErr::Fatal(e)) => Err(InputParseErr::fatal(InputParseError::add_context(
             i, context, e,
         ))),
     }
@@ -291,7 +291,7 @@ pub fn take1_if(
 ) -> impl Fn(Input) -> IResultLookahead<Input> {
     move |input: Input| match input.chars().next().map(|t| (t, condition(t))) {
         Some((c, true)) => Ok(input.take_split(c.len_utf8())),
-        _ => Err(InputParseErr::Fatal(ErrorTree::Base {
+        _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(expectation),
         })),

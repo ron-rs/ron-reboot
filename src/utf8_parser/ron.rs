@@ -1,18 +1,15 @@
-use crate::{
-    ast::{Attribute, Expr, Extension, Ron, SignedInteger, UnsignedInteger},
-    utf8_parser::{
-        basic::{one_char, one_of_chars, one_of_tags, tag},
-        bool,
-        char_categories::is_ident_first_char,
-        combinators,
-        combinators::{
-            alt2, comma_list1, context, cut, delimited, lookahead, many0, map, pair, preceded,
-            take1_if,
-        },
-        decimal, escaped_string, list, r#struct, rmap, signed_integer, tuple, unescaped_str,
-        unsigned_integer, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
-        InputParseError,
+use crate::utf8_parser::{
+    basic::{one_char, one_of_chars, one_of_tags, tag},
+    bool,
+    char_categories::is_ident_first_char,
+    combinators,
+    combinators::{
+        alt2, comma_list1, context, cut, delimited, lookahead, many0, map, pair, preceded, take1_if,
     },
+    decimal, escaped_string, list,
+    pt::{Attribute, Expr, Extension, Ron, SignedInteger, UnsignedInteger},
+    r#struct, rmap, signed_integer, tuple, unescaped_str, unsigned_integer, ErrorTree, Expectation,
+    IResultLookahead, Input, InputParseErr, InputParseError,
 };
 
 fn extension_name(input: Input) -> IResultLookahead<Extension> {

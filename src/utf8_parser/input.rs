@@ -140,6 +140,13 @@ impl<'a> Input<'a> {
     }
 }
 
+#[cfg(test)]
+impl<'a> crate::utf8_parser::test_util::TestMockNew for Input<'a> {
+    fn new_mocked() -> Self {
+        Input::new("")
+    }
+}
+
 impl<'a> Debug for Input<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", Location::from(*self),)

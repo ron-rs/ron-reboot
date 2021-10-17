@@ -11,6 +11,11 @@ use crate::{location::Location, utf8_parser::Input, util::write_pretty_list};
 pub type InputParseError<'a> = ErrorTree<Input<'a>>;
 
 #[derive(Debug)]
+pub struct _PrivateConstructor {
+    private: (),
+}
+
+#[derive(Debug)]
 pub enum InputParseErr<'a> {
     /// The utf8_parser had an error (recoverable)
     Recoverable(InputParseError<'a>),
@@ -18,6 +23,16 @@ pub enum InputParseErr<'a> {
     /// branch and we know other branches won't work, so backtrack
     /// as fast as possible
     Fatal(InputParseError<'a>),
+}
+
+impl<'a> InputParseErr<'a> {
+    pub fn recoverable(e: InputParseError<'a>) -> Self {
+        InputParseErr::Recoverable(e)
+    }
+
+    pub fn fatal(e: InputParseError<'a>) -> Self {
+        InputParseErr::Fatal(e)
+    }
 }
 
 impl<'a> Display for InputParseErr<'a> {

@@ -29,6 +29,8 @@ mod error_fmt;
 mod input;
 /// RON primitive parsers
 mod primitive;
+/// IR for parsing which will then be converted to the AST
+mod pt;
 /// Parsers for arbitrary RON expression & top-level RON
 mod ron;
 #[cfg(feature = "utf8_parser_serde1")]
@@ -43,5 +45,8 @@ mod util;
 pub mod test_util;
 
 pub fn ast_from_str(input: &str) -> Result<Ron, ErrorTree<Location>> {
-    ron::ron(input).map_err(ErrorTree::calc_locations)
+    let pt: pt::Ron = ron::ron(input).map_err(ErrorTree::calc_locations)?;
+    let ast: ast::Ron = pt.into();
+
+    Ok(ast)
 }
