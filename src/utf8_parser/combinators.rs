@@ -114,6 +114,9 @@ where
             Err(InputParseErr::Recoverable(second)) => {
                 Err(InputParseErr::recoverable(ErrorTree::alt(first, second)))
             }
+            Err(InputParseErr::Fatal(second)) => {
+                Err(InputParseErr::fatal(ErrorTree::alt(first, second)))
+            }
             res => res,
         },
         res => res,
@@ -154,8 +157,8 @@ pub fn context_final<'a, F, O>(
     is_final: bool,
     mut f: F,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O>
-    where
-        F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |i: Input| match f(i) {
         Ok(o) => Ok(o),
@@ -624,7 +627,10 @@ where
         let ok = preceded(one_char(start_tag), &mut inner)(input)?;
         match one_char(end_tag)(ok.remaining) {
             Ok(ok_end) => Ok(ok_end.replace(ok.parsed)),
-            Err(e) => Err(ok.discarded_error.map(InputParseErr::Recoverable).unwrap_or(e)), // TODO: maybe alt?
+            Err(e) => Err(ok
+                .discarded_error
+                .map(InputParseErr::Recoverable)
+                .unwrap_or(e)), // TODO: maybe alt?
         }
     }
 }

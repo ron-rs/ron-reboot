@@ -247,7 +247,11 @@ impl<I> ErrorTree<I> {
                 location: convert_location(location),
                 kind,
             },
-            ErrorTree::Stack { base, contexts, finalized } => ErrorTree::Stack {
+            ErrorTree::Stack {
+                base,
+                contexts,
+                finalized,
+            } => ErrorTree::Stack {
                 base: Box::new(base.map_locations_ref(convert_location)),
                 contexts: contexts
                     .into_iter()
@@ -280,7 +284,11 @@ impl<I: Display> Display for ErrorTree<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ErrorTree::Base { location, kind } => write!(f, "{} at {:#}", kind, location),
-            ErrorTree::Stack { contexts, base, finalized: _ } => {
+            ErrorTree::Stack {
+                contexts,
+                base,
+                finalized: _,
+            } => {
                 contexts.iter().rev().try_for_each(|(location, context)| {
                     writeln!(f, "{} at {:#} because", context, location)
                 })?;
@@ -314,12 +322,22 @@ impl<I> ErrorTree<I> {
 
         match other {
             // This is already a stack, so push on to it
-            ErrorTree::Stack { mut contexts, base, finalized: false } => {
+            ErrorTree::Stack {
+                mut contexts,
+                base,
+                finalized: false,
+            } => {
                 contexts.push(context);
-                ErrorTree::Stack { base, contexts, finalized: final_context }
+                ErrorTree::Stack {
+                    base,
+                    contexts,
+                    finalized: final_context,
+                }
             }
 
-            ErrorTree::Stack { finalized: true, .. } => other,
+            ErrorTree::Stack {
+                finalized: true, ..
+            } => other,
 
             // This isn't a stack, create a new stack
             base => ErrorTree::Stack {
