@@ -1,5 +1,6 @@
 use crate::utf8_parser::{
-    combinators::{comma_list0, lookahead},
+    basic::one_char,
+    combinators::{comma_list0, lookahead, many0, preceded},
     containers::tagged,
     pt::{Expr, Integer, List, Map, Sign, Spanned, Struct, UnsignedInteger},
     test_util::eval,
@@ -21,7 +22,7 @@ fn trailing_commas() {
 #[test]
 fn missing_colon() {
     let input = "Transform(pos 5)";
-    assert!(eval!(@result expr, input).is_err());
+    assert_eq!(eval!(@result expr, input).unwrap().remaining.len(), 7);
 }
 
 #[test]
@@ -101,6 +102,24 @@ fn lists_inner() {
         eval!(comma_list0(|input| lookahead(expr)(input)), "1,"),
         vec![Spanned::new_test(UnsignedInteger::new(1).to_expr())]
     );
+}
+
+#[test]
+fn many0_empty() {
+    assert_eq!(
+        eval!(many0(preceded(lookahead(one_char('a')), one_char('b'))), ""),
+        vec![]
+    );
+}
+
+#[test]
+fn comma_list0_empty() {
+    assert_eq!(eval!(comma_list0(|input| expr(input)), ""), vec![]);
+}
+
+#[test]
+fn expr_empty_recoverable() {
+    assert!(eval!(@result expr, "").unwrap_err().is_recoverable());
 }
 
 #[test]

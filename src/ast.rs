@@ -293,24 +293,21 @@ impl<'a> List<'a> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub struct Tuple<'a> {
-    pub ident: Option<Spanned<Ident<'a>>>,
     pub elements: Vec<Spanned<Expr<'a>>>,
-}
-
-impl<'a> Tuple<'a> {
-    #[cfg(test)]
-    pub fn new_test(ident: Option<&'a str>, kvs: Vec<Expr<'a>>) -> Self {
-        Tuple {
-            ident: ident.map(Ident).map(Spanned::new_test),
-            elements: kvs.into_iter().map(Spanned::new_test).collect(),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Untagged<'a> {
+    Unit,
     Struct(Struct<'a>),
+    Tuple(Tuple<'a>),
+}
+
+impl<'a> Untagged<'a> {
+    pub fn take(&mut self) -> Self {
+        replace(self, Untagged::Unit)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -176,7 +176,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
     move |mut i: Input| {
-        let mut acc = Vec::with_capacity(4);
+        let mut acc = Vec::new();
         loop {
             let len = i.len();
             match f(i) {
@@ -624,7 +624,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     move |input| {
-        let ok = preceded(one_char(start_tag), &mut inner)(input)?;
+        let ok = preceded(lookahead(one_char(start_tag)), &mut inner)(input)?;
         match one_char(end_tag)(ok.remaining) {
             Ok(ok_end) => Ok(ok_end.replace(ok.parsed)),
             Err(e) => Err(ok

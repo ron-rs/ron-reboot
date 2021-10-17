@@ -33,6 +33,13 @@ impl<'a> InputParseErr<'a> {
     pub fn fatal(e: InputParseError<'a>) -> Self {
         InputParseErr::Fatal(e)
     }
+
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            InputParseErr::Recoverable(_) => true,
+            InputParseErr::Fatal(_) => false,
+        }
+    }
 }
 
 impl<'a> Display for InputParseErr<'a> {

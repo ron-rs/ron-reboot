@@ -1,7 +1,10 @@
 #![allow(clippy::type_complexity)]
 
 use serde::{
-    de::{DeserializeSeed, MapAccess, SeqAccess, Visitor},
+    de::{
+        DeserializeSeed, EnumAccess, Error as SerdeErrorTrait, MapAccess, SeqAccess, VariantAccess,
+        Visitor,
+    },
     forward_to_deserialize_any, Deserialize, Deserializer,
 };
 
@@ -84,17 +87,74 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             String(s) => visitor.visit_string(s),
             Decimal(d) => visitor.visit_f64(d.into()),
             Tagged(t) => match t.untagged.value {
-                Untagged::Struct(mut s) => {
-                    // TODO: how to pass tag?
-                    visitor.visit_map(StructDeserializer {
-                        iter: s.fields.iter_mut(),
-                        value: None,
-                    })
-                }
+                Untagged::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                    iter: s.fields.iter_mut(),
+                    value: None,
+                }),
+                Untagged::Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                    iter: t.elements.iter_mut(),
+                }),
+                Untagged::Unit => visitor.visit_unit(),
             },
         };
 
         res.map_err(|e| e.context_loc(self.expr.start.into(), self.expr.end.into()))
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let start_loc = self.expr.start;
+        let end_loc = self.expr.end;
+        let res = match self.expr.value.take() {
+            ast::Expr::Tagged(ast::Tagged { ident, .. }) if ident.value.0 != name => {
+                Err(Error::custom(format!(
+                    "invalid struct type: `{}`, expected `{}`",
+                    ident.value.0, name
+                )).context_loc(ident.start, ident.end))
+            }
+            ast::Expr::Tagged(ast::Tagged {
+                untagged:
+                    ast::Spanned {
+                        value: Untagged::Struct(mut s),
+                        ..
+                    },
+                ..
+            })
+            | ast::Expr::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                iter: s.fields.iter_mut(),
+                value: None,
+            }),
+            _ => self.deserialize_any(visitor),
+        };
+
+        res.map_err(|e| e.context_loc(start_loc, end_loc))
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let start_loc = self.expr.start;
+        let end_loc = self.expr.end;
+        let res = match self.expr.value.take() {
+            Tagged(mut t) => visitor.visit_enum(EnumDeserializer { tagged: &mut t }),
+            // probably no enum and will error
+            _ => self.deserialize_any(visitor),
+        };
+
+        res.map_err(|e| e.context_loc(start_loc, end_loc))
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -116,7 +176,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char string str
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum
+        tuple_struct map
     }
 }
 
@@ -297,7 +357,12 @@ impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.ident.value.0)
+        let start_loc = self.ident.start;
+        let end_loc = self.ident.end;
+
+        visitor
+            .visit_borrowed_str(self.ident.value.0)
+            .map_err(|e: Error| e.context_loc(start_loc, end_loc))
     }
 
     forward_to_deserialize_any! {
@@ -307,14 +372,87 @@ impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {
     }
 }
 
-/*
-impl<'a, 'de> EnumAccess<'de> for IdentDeserializer<'a, 'de> {
-    type Error = crate::error::Error;
-    type Variant = ();
+struct EnumDeserializer<'a, 'de> {
+    tagged: &'a mut ast::Tagged<'de>,
+}
 
-    fn variant_seed<V>(self, seed: V) -> Result<(serde::de::Value, Self::Variant), Self::Error> where V: DeserializeSeed<'de> {
-        todo!()
+impl<'a, 'de> EnumAccess<'de> for EnumDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+    type Variant = UntaggedDeserializer<'a, 'de>;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let variant_ident = seed.deserialize(IdentDeserializer {
+            ident: &mut self.tagged.ident,
+        })?;
+
+        Ok((
+            variant_ident,
+            UntaggedDeserializer {
+                untagged: &mut self.tagged.untagged,
+            },
+        ))
     }
 }
 
- */
+struct UntaggedDeserializer<'a, 'de> {
+    untagged: &'a mut ast::Spanned<ast::Untagged<'de>>,
+}
+
+impl<'a, 'de> VariantAccess<'de> for UntaggedDeserializer<'a, 'de> {
+    type Error = crate::error::Error;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        match self.untagged.value.take() {
+            Untagged::Struct(_) => todo!(),
+            Untagged::Tuple(_) => todo!(),
+            Untagged::Unit => Ok(()),
+        }
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.untagged.value.take() {
+            Untagged::Struct(_) => todo!(),
+            Untagged::Tuple(mut t) => seed.deserialize(RonDeserializer {
+                expr: t.elements.iter_mut().next().ok_or_else(|| Error::custom("invalid enum variant, got zero tuple elements, but expected one (newtype variant)"))?
+            }),
+            Untagged::Unit => todo!(),
+        }
+    }
+
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.untagged.value.take() {
+            Untagged::Struct(_) => todo!(),
+            Untagged::Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                iter: t.elements.iter_mut(),
+            }),
+            Untagged::Unit => todo!(),
+        }
+    }
+
+    fn struct_variant<V>(
+        self,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self.untagged.value.take() {
+            Untagged::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                iter: s.fields.iter_mut(),
+                value: None,
+            }),
+            Untagged::Tuple(_) => todo!(),
+            Untagged::Unit => todo!(),
+        }
+    }
+}

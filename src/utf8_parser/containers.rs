@@ -1,10 +1,10 @@
 use crate::{
     utf8_parser,
     utf8_parser::{
-        basic::one_char,
+        basic::{nothing, one_char},
         combinators,
         combinators::{
-            alt2, comma_list0, comma_list1, context, cut, lookahead, map, opt, pair, spanned,
+            alt2, comma_list0, comma_list1, context, cut, lookahead, map, pair, spanned,
             terminated,
         },
         primitive::ident,
@@ -19,13 +19,9 @@ fn ident_val_pair(input: Input) -> IResultLookahead<KeyValue<Ident>> {
             combinators::spanned(ident::ident),
             one_char(':'),
         )),
-        combinators::spanned(utf8_parser::expr),
+        combinators::spanned(cut(utf8_parser::expr)),
     );
     map(pair, |(k, v)| KeyValue { key: k, value: v })(input)
-}
-
-fn opt_ident(input: Input) -> IResultLookahead<Option<Spanned<Ident>>> {
-    opt(combinators::spanned(lookahead(ident::ident)))(input)
 }
 
 fn untagged_struct_inner(input: Input) -> IResultLookahead<Vec<Spanned<KeyValue<Ident>>>> {
@@ -33,9 +29,10 @@ fn untagged_struct_inner(input: Input) -> IResultLookahead<Vec<Spanned<KeyValue<
 }
 
 pub fn untagged_struct(input: Input) -> IResultLookahead<Struct> {
-    map(context("struct", untagged_struct_inner), |fields| Struct {
-        fields,
-    })(input)
+    map(
+        context("untagged struct", untagged_struct_inner),
+        |fields| Struct { fields },
+    )(input)
 }
 
 fn key_val_pair(input: Input) -> IResultLookahead<KeyValue<Expr>> {
@@ -81,7 +78,10 @@ pub fn tagged(input: Input) -> IResultLookahead<Tagged> {
                 spanned(ident),
                 spanned(alt2(
                     map(untagged_struct, Untagged::Struct),
-                    map(tuple, |_| todo!()),
+                    alt2(
+                        map(tuple, Untagged::Tuple),
+                        map(nothing, |_| Untagged::Unit),
+                    ),
                 )),
             ),
             |(ident, untagged)| Tagged { ident, untagged },
@@ -93,27 +93,8 @@ pub fn tuple(input: Input) -> IResultLookahead<Tuple> {
     context(
         "tuple",
         map(
-            pair(
-                opt_ident,
-                combinators::block('(', comma_list0(utf8_parser::expr), ')'),
-            ),
-            |(ident, elements)| Tuple { ident, elements },
+            combinators::block('(', comma_list0(utf8_parser::expr), ')'),
+            |elements| Tuple { elements },
         ),
     )(input)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::utf8_parser::test_util::eval;
-
-    #[test]
-    fn opt_idents() {
-        let s = Spanned::new_test;
-
-        assert_eq!(eval!(opt_ident, "Pos"), Some(s(Ident("Pos"))));
-        assert_eq!(eval!(opt_ident, "_0"), Some(s(Ident("_0"))));
-        assert_eq!(eval!(opt_ident, ""), None);
-        assert_eq!(eval!(opt_ident, "!not an ident"), None);
-    }
 }

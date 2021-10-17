@@ -375,15 +375,13 @@ impl<'a> From<List<'a>> for ast::List<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tuple<'a> {
-    pub ident: Option<Spanned<'a, Ident<'a>>>,
     pub elements: Vec<Spanned<'a, Expr<'a>>>,
 }
 
 impl<'a> Tuple<'a> {
     #[cfg(test)]
-    pub fn new_test(ident: Option<&'a str>, kvs: Vec<Expr<'a>>) -> Self {
+    pub fn new_test(kvs: Vec<Expr<'a>>) -> Self {
         Tuple {
-            ident: ident.map(Ident).map(Spanned::new_test),
             elements: kvs.into_iter().map(Spanned::new_test).collect(),
         }
     }
@@ -392,7 +390,6 @@ impl<'a> Tuple<'a> {
 impl<'a> From<Tuple<'a>> for ast::Tuple<'a> {
     fn from(l: Tuple<'a>) -> Self {
         ast::Tuple {
-            ident: l.ident.map(Into::into),
             elements: l.elements.into_iter().map(Into::into).collect(),
         }
     }
@@ -400,13 +397,17 @@ impl<'a> From<Tuple<'a>> for ast::Tuple<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Untagged<'a> {
+    Unit,
     Struct(Struct<'a>),
+    Tuple(Tuple<'a>),
 }
 
 impl<'a> From<Untagged<'a>> for ast::Untagged<'a> {
     fn from(u: Untagged<'a>) -> Self {
         match u {
+            Untagged::Unit => ast::Untagged::Unit,
             Untagged::Struct(s) => ast::Untagged::Struct(s.into()),
+            Untagged::Tuple(t) => ast::Untagged::Tuple(t.into()),
         }
     }
 }

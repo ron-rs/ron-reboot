@@ -68,15 +68,12 @@ error: invalid type: map, expected a string
 | Parser generating beautiful errors               | :hourglass_flowing_sand: in progress, 70% complete |
 | Replace nom combinators                          | :heavy_check_mark: done                            |
 | Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                     |
-| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 90% complete     |
+| Serde Deserializer using AST                     | :hourglass_flowing_sand: working, 95% complete     |
 | Serde Deserializer generating beautiful errors   | :heavy_check_mark: done                            |
 | `ron-edit` (format & comments preserving writer) | :x: to be done                                     |
 
 ## TODO list
 
-* Add support for enums (unit and tuple variant)
-* Look at error handling wrt expression class
 * Raw identifiers
 * Raw strings
-* Extensions
 * Comments

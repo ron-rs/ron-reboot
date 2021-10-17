@@ -2,7 +2,101 @@ use std::{collections::HashMap, hash::Hash, iter::FromIterator};
 
 use serde::Deserialize;
 
-use crate::{error::ErrorKind::*, utf8_parser::serde::from_str};
+use crate::{error::ErrorKind::*, utf8_parser::serde::from_str as normal_from_str};
+
+// Custom wrapper for tests to make error easier to read
+pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
+where
+    T: Deserialize<'a>,
+{
+    normal_from_str(s).map_err(|e| {
+        //let _ = crate::print_error(&e);
+
+        e
+    })
+}
+
+#[derive(Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
+enum MyEnum {
+    UnitVariant1,
+    UnitVariant2,
+    NewtypeVariant(String),
+    TupleVariantEmpty(),
+    TupleVariant(i32, i32),
+    StructVariant { a: bool, b: String },
+}
+
+#[test]
+fn mixed_enum_unit() {
+    assert_eq!(
+        from_str(
+            r#"
+UnitVariant1
+"#
+        ),
+        Ok(MyEnum::UnitVariant1)
+    );
+
+    assert_eq!(
+        from_str(
+            r#"
+UnitVariant2
+"#
+        ),
+        Ok(MyEnum::UnitVariant2)
+    );
+}
+
+#[test]
+fn mixed_enum_newtype() {
+    assert_eq!(
+        from_str(
+            r#"
+NewtypeVariant("Newtypes are a special case in serde")
+"#
+        ),
+        Ok(MyEnum::NewtypeVariant("Newtypes are a special case in serde".to_owned()))
+    );
+}
+
+#[test]
+fn mixed_enum_tuple() {
+    assert_eq!(
+        from_str(
+            r#"
+TupleVariantEmpty()
+"#
+        ),
+        Ok(MyEnum::TupleVariantEmpty())
+    );
+
+    assert_eq!(
+        from_str(
+            r#"
+TupleVariant(1, 2)
+"#
+        ),
+        Ok(MyEnum::TupleVariant(1, 2))
+    );
+}
+
+#[test]
+fn mixed_enum_struct() {
+    assert_eq!(
+        from_str(
+            r#"
+StructVariant (
+    a: true,
+    b: "Hello"
+)
+"#
+        ),
+        Ok(MyEnum::StructVariant {
+            a: true,
+            b: "Hello".to_owned()
+        })
+    );
+}
 
 #[derive(Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct MyStruct {

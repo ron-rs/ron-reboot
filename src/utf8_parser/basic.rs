@@ -3,6 +3,11 @@ use crate::utf8_parser::{
     IResultLookahead, Input, InputParseErr,
 };
 
+/// Matches always and doesn't advance the parser
+pub fn nothing(input: Input) -> IResultLookahead<Input> {
+    Ok(input.take_split(0).into())
+}
+
 pub fn multispace0(input: Input) -> IResultLookahead<Input> {
     combinators::take_while(is_ws)(input)
 }

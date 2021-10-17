@@ -105,7 +105,7 @@ impl ExprClass {
 
 fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     // Copy input and discard its offset ("peek")
-    let expr_class = ExprClass::parse(input)?.parsed;
+    let expr_class = lookahead(ExprClass::parse)(input)?.parsed;
 
     // We could just directly try parsing all of these variants without determining an expr class
     // beforehand. However, for error collection & possibly performance reasons this seems to be
@@ -136,7 +136,7 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
 }
 
 pub fn expr(input: Input) -> IResultLookahead<Expr> {
-    cut(context_final("expression", true, expr_inner))(input)
+    context_final("expression", true, expr_inner)(input)
 }
 
 fn ron_inner(input: Input) -> IResultLookahead<Ron> {
