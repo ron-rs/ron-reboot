@@ -5,7 +5,10 @@ use std::{
     slice::SliceIndex,
 };
 
-use crate::{location::Location, utf8_parser::IResultLookahead};
+use crate::{
+    location::Location,
+    utf8_parser::{IOk, IResultLookahead},
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Offset {
@@ -116,8 +119,8 @@ impl<'a> Input<'a> {
         self.fragment.char_indices()
     }
 
-    pub fn take_split(&self, count: usize) -> (Self, Self) {
-        (self.slice(count..), self.slice(..count))
+    pub fn take_split(self, count: usize) -> IOk<'a, Self> {
+        (self.slice(count..), self.slice(..count)).into()
     }
 
     pub fn slice(&self, range: impl SliceIndex<str, Output = str>) -> Self {
@@ -223,23 +226,23 @@ mod tests {
     fn test_location() {
         let input = Input::new("Foo(\na: true,\nb: false)");
         assert_eq!(
-            Location::from(input.take_split(0).0),
+            Location::from(input.take_split(0).remaining),
             Location { line: 1, column: 1 }
         );
         assert_eq!(
-            Location::from(input.take_split(1).0),
+            Location::from(input.take_split(1).remaining),
             Location { line: 1, column: 2 }
         );
         assert_eq!(
-            Location::from(input.take_split(5).0),
+            Location::from(input.take_split(5).remaining),
             Location { line: 2, column: 1 }
         );
         assert_eq!(
-            Location::from(input.take_split(6).0),
+            Location::from(input.take_split(6).remaining),
             Location { line: 2, column: 2 }
         );
         assert_eq!(
-            Location::from(input.take_split(14).0),
+            Location::from(input.take_split(14).remaining),
             Location { line: 3, column: 1 }
         );
     }

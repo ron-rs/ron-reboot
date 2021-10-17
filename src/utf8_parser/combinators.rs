@@ -3,7 +3,7 @@ use crate::utf8_parser::{
     basic::{multispace0, one_char},
     input::position,
     pt::Spanned,
-    util, BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
+    util, BaseErrorKind, ErrorTree, Expectation, IOk, IResultLookahead, Input, InputParseErr,
     InputParseError, OutputResult,
 };
 
@@ -28,11 +28,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, O1>,
     G: FnMut(Input<'a>) -> IResultLookahead<'a, O2>,
 {
-    move |input: Input| {
-        let (i, r) = first(input)?;
-
-        second(i).map(|(i, r2)| (i, (r, r2)))
-    }
+    move |input: Input| first(input)?.then(&mut second, |first, second| (first, second))
 }
 
 pub fn preceded<'a, F, G, O, OI>(
@@ -43,11 +39,7 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<'a, OI>,
     G: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
 {
-    move |input: Input| {
-        let (i, _) = first(input)?;
-
-        second(i)
-    }
+    move |input: Input| first(input)?.then(&mut second, |_first, second| second)
 }
 
 pub fn terminated<'a, F, G, O, OI>(
@@ -59,8 +51,12 @@ where
     G: FnMut(Input<'a>) -> IResultLookahead<'a, OI>,
 {
     move |input: Input| {
-        let (i, r) = first(input)?;
-        second(i).map(|(i, _)| (i, r))
+        let IOk {
+            remaining,
+            discarded_error,
+            parsed,
+        } = first(input)?;
+        second(remaining).map(|ok| ok.prepend_err(discarded_error).replace(parsed))
     }
 }
 
@@ -69,14 +65,18 @@ where
     F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
     move |input: Input| {
-        let i = input;
-        match parser(i) {
-            Ok((i, _)) => {
-                let index = input.offset_to(&i);
-                Ok((i, input.slice(..index)))
-            }
-            Err(e) => Err(e),
-        }
+        let copy_of_input = input;
+
+        parser(copy_of_input)?.then(
+            |remaining_input| {
+                Ok((
+                    remaining_input,
+                    input.slice(..input.offset_to(&remaining_input)),
+                )
+                    .into())
+            },
+            |_first, second| second,
+        )
     }
 }
 
@@ -128,8 +128,12 @@ where
     move |input: Input| {
         let i = input;
         match f(input) {
-            Ok((i, o)) => Ok((i, Some(o))),
-            Err(InputParseErr::Recoverable(_)) => Ok((i, None)),
+            Ok(ok) => Ok(ok.map(Some)),
+            Err(InputParseErr::Recoverable(e)) => Ok(IOk {
+                remaining: i,
+                parsed: None,
+                discarded_error: Some(e),
+            }),
             Err(e) => Err(e),
         }
     }
@@ -162,16 +166,24 @@ where
         loop {
             let len = i.len();
             match f(i) {
-                Err(InputParseErr::Recoverable(_)) => return Ok((i, acc)),
+                Err(InputParseErr::Recoverable(e)) => {
+                    return Ok(IOk {
+                        remaining: i,
+                        parsed: acc,
+                        discarded_error: Some(e),
+                    })
+                }
                 Err(e) => return Err(e),
-                Ok((i1, o)) => {
+                Ok(ok) => {
                     // infinite loop check: the utf8_parser must always consume
-                    if i1.len() == len {
+                    if ok.remaining.len() == len {
                         unimplemented!("infinite loop - utf8_parser not consuming?");
                     }
 
-                    i = i1;
-                    acc.push(o);
+                    // TODO: if there was a discarded error, we forget it here
+                    // TODO: is that correct?
+                    i = ok.remaining;
+                    acc.push(ok.parsed);
                 }
             }
         }
@@ -182,20 +194,14 @@ pub fn map<'a, O, O2>(
     mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, O>,
     map: impl Fn(O) -> O2 + Clone,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O2> {
-    move |input: Input| {
-        let (input, o1) = parser(input)?;
-        Ok((input, map(o1)))
-    }
+    move |input: Input| Ok(parser(input)?.map(&map))
 }
 
 pub fn map_res<'a, O, O2>(
     mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, O>,
     map: impl Fn(O) -> OutputResult<'a, O2> + Clone,
 ) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, O2> {
-    move |input: Input| {
-        let (input, o1) = parser(input)?;
-        Ok((input, map(o1)?))
-    }
+    move |input: Input| parser(input)?.map_res(&map)
 }
 
 pub fn take_while1<'a>(
@@ -256,26 +262,31 @@ where
     G: FnMut(R, O) -> R,
     H: FnMut() -> R,
 {
-    move |i: Input| {
+    move |input: Input| {
         let mut res = init();
-        let mut input = i;
+        let mut input = input;
 
         loop {
-            let i_ = input;
+            let copy_of_input = input;
             let len = input.len();
-            match f(i_) {
-                Ok((i, o)) => {
+            match f(copy_of_input) {
+                Ok(ok) => {
                     // infinite loop check: the utf8_parser must always consume
-                    if i.len() == len {
+                    if ok.remaining.len() == len {
                         todo!()
                         //return Err(InputParseErr::Error(E::from_error_kind(input, ErrorKind::Many0)));
                     }
 
-                    res = g(res, o);
-                    input = i;
+                    // TODO: again, forgetting discarded error
+                    res = g(res, ok.parsed);
+                    input = ok.remaining;
                 }
-                Err(InputParseErr::Recoverable(_)) => {
-                    return Ok((input, res));
+                Err(InputParseErr::Recoverable(e)) => {
+                    return Ok(IOk {
+                        remaining: input,
+                        parsed: res,
+                        discarded_error: Some(e),
+                    });
                 }
                 Err(e) => {
                     return Err(e);
@@ -419,28 +430,28 @@ mod tests {
         assert_eq!(
             take_while(|c| c == 'a' || c == 'b')(Input::new("cababcabab"))
                 .unwrap()
-                .1
+                .parsed
                 .len(),
             0
         );
         assert_eq!(
             take_while(|c| c == 'a' || c == 'b')(Input::new(""))
                 .unwrap()
-                .1
+                .parsed
                 .len(),
             0
         );
         assert_eq!(
             take_while(|c| c == 'a' || c == 'b')(Input::new("c"))
                 .unwrap()
-                .1
+                .parsed
                 .len(),
             0
         );
         assert_eq!(
             take_while(|c| c == 'a' || c == 'b')(Input::new("b"))
                 .unwrap()
-                .1
+                .parsed
                 .len(),
             1
         );
@@ -565,18 +576,9 @@ where
     O: 'a,
 {
     ws(move |input: Input<'a>| {
-        let (input, start) = position(input)?;
-        let (input, value) = inner(input)?;
-        let (input, end) = position(input)?;
-
-        Ok((
-            input,
-            Spanned {
-                start: start.into(),
-                value,
-                end: end.into(),
-            },
-        ))
+        position(input)?.then_res(&mut inner, |start, second: IResultLookahead<O>| {
+            second?.then(position, |value, end| Spanned { start, value, end })
+        })
     })
 }
 

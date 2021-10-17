@@ -80,19 +80,18 @@ fn decimal_exp(input: Input) -> IResultLookahead<Option<(Option<Sign>, u16)>> {
 /// * `-5.0`
 /// * `1222.00`
 fn decimal_std(input: Input) -> IResultLookahead<Decimal> {
-    let (input, sign) = opt(lookahead(sign))(input)?;
-    // Need to create temp var for borrow checker
-    let x = map(
+    map(
         pair(
-            terminated(decimal_unsigned, lookahead(one_char('.'))),
-            pair(fractional_part, decimal_exp),
+            opt(lookahead(sign)),
+            pair(
+                terminated(decimal_unsigned, lookahead(one_char('.'))),
+                pair(fractional_part, decimal_exp),
+            ),
         ),
-        |(whole, ((fractional, fractional_digits), exp))| {
+        |(sign, (whole, ((fractional, fractional_digits), exp)))| {
             Decimal::new(sign, Some(whole), fractional, fractional_digits, exp)
         },
-    )(input);
-
-    x
+    )(input)
 }
 
 /// A decimal without a whole part e.g. `.01`

@@ -8,10 +8,10 @@ use self::{
     primitive::{bool, decimal, escaped_string, signed_integer, unescaped_str, unsigned_integer},
     ron::expr,
 };
-use crate::{ast, ast::Ron, location::Location};
+use crate::{ast, ast::Ron, location::Location, utf8_parser::ok::IOk};
 
 //pub type IResultFatal<'a, O> = Result<(Input<'a>, O), InputParseError<'a>>;
-type IResultLookahead<'a, O> = Result<(Input<'a>, O), InputParseErr<'a>>;
+type IResultLookahead<'a, O> = Result<IOk<'a, O>, InputParseErr<'a>>;
 type OutputResult<'a, O> = Result<O, InputParseErr<'a>>;
 
 /// Basic parsers which receive `Input`
@@ -27,6 +27,7 @@ mod error;
 mod error_fmt;
 /// `Input` abstraction to slice the input that is being parsed and keep track of the line + column
 mod input;
+mod ok;
 /// RON primitive parsers
 mod primitive;
 /// IR for parsing which will then be converted to the AST

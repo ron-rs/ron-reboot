@@ -25,7 +25,7 @@ pub fn one_char(c: char) -> impl Fn(Input) -> IResultLookahead<char> {
         let b = t == c;
         (&c, b)
     }) {
-        Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c)),
+        Some((&c, true)) => Ok((input.slice(c.len_utf8()..), c).into()),
         _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::Char(c)),
@@ -43,7 +43,7 @@ pub fn one_of_chars<O: Clone>(
         let b = one_of.chars().position(|c| c == t);
         (t, b)
     }) {
-        Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone())),
+        Some((c, Some(i))) => Ok((input.slice(c.len_utf8()..), mapping[i].clone()).into()),
         _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfChars(one_of)),
@@ -60,7 +60,7 @@ pub fn one_of_tags<O: Clone>(
         .enumerate()
         .find(|(_, &t)| input.fragment().starts_with(t))
     {
-        Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone())),
+        Some((i, tag)) => Ok((input.slice(tag.len()..), mapping[i].clone()).into()),
         _ => Err(InputParseErr::fatal(ErrorTree::Base {
             location: input,
             kind: BaseErrorKind::Expected(Expectation::OneOfTags(one_of)),

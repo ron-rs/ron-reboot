@@ -1,4 +1,4 @@
-use crate::utf8_parser::{Input, InputParseErr};
+use crate::utf8_parser::InputParseErr;
 
 // TODO: move to utf8_parser
 #[cfg(test)]
@@ -14,13 +14,15 @@ macro_rules! eval {
 #[cfg(test)]
 pub(crate) use eval;
 
+use crate::utf8_parser::ok::IOk;
+
 pub trait TestMockNew {
     fn new_mocked() -> Self;
 }
 
-pub fn unwrap_pr1<T>(r: Result<(Input, T), InputParseErr>) -> T {
+pub fn unwrap_pr1<T>(r: Result<IOk<T>, InputParseErr>) -> T {
     match r {
-        Ok((_, the_value)) => the_value,
+        Ok(ok) => ok.parsed,
         Err(InputParseErr::Recoverable(e) | InputParseErr::Fatal(e)) => {
             panic!("{}", e)
         }

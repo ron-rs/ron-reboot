@@ -103,7 +103,7 @@ impl ExprClass {
 
 fn expr_inner(input: Input) -> IResultLookahead<Expr> {
     // Copy input and discard its offset ("peek")
-    let (_, expr_class): (Input, ExprClass) = ExprClass::parse(input)?;
+    let expr_class = ExprClass::parse(input)?.parsed;
 
     // We could just directly try parsing all of these variants without determining an expr class
     // beforehand. However, for error collection & possibly performance reasons this seems to be
@@ -150,8 +150,8 @@ pub fn ron(input: &str) -> Result<Ron, InputParseError> {
     let input = Input::new(input);
 
     match ron_inner(input) {
-        Ok((i, ron)) if i.is_empty() => Ok(ron),
-        Ok((i, _)) => Err(ErrorTree::expected(i, Expectation::Eof)),
+        Ok(ok) if ok.remaining.is_empty() => Ok(ok.parsed),
+        Ok(ok) => Err(ErrorTree::expected(ok.remaining, Expectation::Eof)),
         Err(InputParseErr::Fatal(e)) | Err(InputParseErr::Recoverable(e)) => Err(e),
     }
 }
