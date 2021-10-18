@@ -1,0 +1,21 @@
+Config (
+    flags: [
+        Unit,
+        EmptyTuple(),
+        NewType((int: 5, string: "no")),
+        Tuple(55, Some(64)),
+        Struct (
+            optional: Some( "hey!"),
+            very_optional: Some(None),
+        )
+    ],
+
+    mapping: {
+        "key": Data(
+            string:
+            /* why is this string in a new line? I don't know. */
+            "string data",
+            int: 42 // why not I guess
+        ),
+    }
+)

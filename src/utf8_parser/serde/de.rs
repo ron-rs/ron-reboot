@@ -94,7 +94,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                 Untagged::Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
                     iter: t.elements.iter_mut(),
                 }),
-                Untagged::Unit => visitor.visit_unit(),
+                Untagged::Unit => visitor.visit_borrowed_str(t.ident.value.0),
             },
         };
 
@@ -158,11 +158,12 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
         res.map_err(|e| e.context_loc(start_loc, end_loc))
     }
 
-    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        unimplemented!("identifiers are no expr")
+        self.deserialize_any(visitor)
+        //unimplemented!("identifiers are no expr")
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>

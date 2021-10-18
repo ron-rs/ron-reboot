@@ -1,6 +1,6 @@
 use crate::utf8_parser::{
     basic,
-    basic::{multispace0, one_char},
+    basic::{multispacews0, one_char},
     input::position,
     pt::Spanned,
     util, BaseErrorKind, ErrorTree, Expectation, IOk, IResultLookahead, Input, InputParseErr,
@@ -600,7 +600,7 @@ pub fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Input<'a>) -> IResultLookahead<O
 where
     F: FnMut(Input<'a>) -> IResultLookahead<O>,
 {
-    delimited(multispace0, inner, multispace0)
+    delimited(multispacews0, inner, multispacews0)
 }
 
 /// Like

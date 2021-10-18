@@ -1,7 +1,8 @@
 use crate::utf8_parser::{
     char_categories::is_ws,
     combinators,
-    combinators::{lookahead, pair, recognize, take_while},
+    combinators::{alt2, lookahead, pair, recognize, take_while},
+    ok::IOk,
     util,
     util::base_err,
     BaseErrorKind, ErrorTree, Expectation, IResultLookahead, Input, InputParseErr,
@@ -10,6 +11,26 @@ use crate::utf8_parser::{
 /// Matches always and doesn't advance the parser
 pub fn nothing(input: Input) -> IResultLookahead<Input> {
     Ok(input.take_split(0).into())
+}
+
+pub fn multispacews0(input: Input) -> IResultLookahead<()> {
+    let mut any_comment = alt2(block_comment, eol_comment);
+
+    let mut ok: IOk<bool> = (input, true).into();
+    loop {
+        let mult = multispace0(ok.remaining)?;
+        let mult_rem = mult.remaining;
+        ok = mult.then_res(&mut any_comment, |_, res| match res {
+            Ok(ok) => Ok(ok.replace(true)),
+            Err(e) if e.is_recoverable() => Ok((mult_rem, false).into()), // TODO keep error?
+            Err(e) => Err(e),
+        })?;
+
+        if ok.parsed {
+        } else {
+            break Ok(ok.replace(()));
+        }
+    }
 }
 
 pub fn multispace0(input: Input) -> IResultLookahead<Input> {
@@ -28,23 +49,22 @@ pub fn eol_comment(input: Input) -> IResultLookahead<Input> {
 }
 
 pub fn block_comment(input: Input) -> IResultLookahead<Input> {
-    recognize(pair(
-        lookahead(tag("/*")),
-        block_comment_tail,
-    ))(input)
+    recognize(pair(lookahead(tag("/*")), block_comment_tail))(input)
 }
 
 fn block_comment_tail(input: Input) -> IResultLookahead<()> {
-    let comment_end = input
-        .fragment()
-        .find("*/")
-        .ok_or_else(|| base_err::<()>(input.slice(input.len() - 1..), Expectation::BlockCommentEnd).unwrap_err())?;
+    let comment_end = input.fragment().find("*/").ok_or_else(|| {
+        base_err::<()>(input.slice(input.len() - 1..), Expectation::BlockCommentEnd).unwrap_err()
+    })?;
     let nested_start = input.fragment().find("/*");
 
     if let Some(nested_start) = nested_start {
-       if nested_start < comment_end {
-           return input.take_split(nested_start).and_then(block_comment, |_, _| ())?.and_then(block_comment_tail, |_, _| ());
-       }
+        if nested_start < comment_end {
+            return input
+                .take_split(nested_start)
+                .and_then(block_comment, |_, _| ())?
+                .and_then(block_comment_tail, |_, _| ());
+        }
     }
 
     let advanced = input.take_split(comment_end);
@@ -115,6 +135,19 @@ mod tests {
     use crate::utf8_parser::test_util::eval;
 
     #[test]
+    fn basic_eol_comment() {
+        assert_eq!(
+            eval!(eol_comment, "// Hello I am an eol comment\n").fragment(),
+            "// Hello I am an eol comment"
+        );
+
+        assert_eq!(
+            eval!(eol_comment, "// Hello I am an // eol comment\r\n").fragment(),
+            "// Hello I am an // eol comment"
+        );
+    }
+
+    #[test]
     fn basic_block_comment() {
         assert_eq!(
             eval!(block_comment, "/* Hello I am a block comment! */").fragment(),
@@ -122,7 +155,11 @@ mod tests {
         );
 
         assert_eq!(
-            eval!(block_comment, "/* Hello I am a\n block comment! */ parser ignores this */ /*").fragment(),
+            eval!(
+                block_comment,
+                "/* Hello I am a\n block comment! */ parser ignores this */ /*"
+            )
+            .fragment(),
             "/* Hello I am a\n block comment! */"
         );
     }
@@ -130,7 +167,11 @@ mod tests {
     #[test]
     fn nested_block_comment() {
         assert_eq!(
-            eval!(block_comment, "/* Hello I am /* a nested */ block comment! */").fragment(),
+            eval!(
+                block_comment,
+                "/* Hello I am /* a nested */ block comment! */"
+            )
+            .fragment(),
             "/* Hello I am /* a nested */ block comment! */"
         );
     }

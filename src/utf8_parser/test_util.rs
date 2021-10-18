@@ -13,6 +13,7 @@ macro_rules! eval {
 
 #[cfg(test)]
 pub(crate) use eval;
+use crate::print_error;
 
 use crate::utf8_parser::ok::IOk;
 
@@ -24,7 +25,8 @@ pub fn unwrap_pr1<T>(r: Result<IOk<T>, InputParseErr>) -> T {
     match r {
         Ok(ok) => ok.parsed,
         Err(InputParseErr::Recoverable(e) | InputParseErr::Fatal(e)) => {
-            panic!("{}", e)
+            print_error(&crate::Error::from(e)).unwrap();
+            panic!();
         }
     }
 }
@@ -32,6 +34,9 @@ pub fn unwrap_pr1<T>(r: Result<IOk<T>, InputParseErr>) -> T {
 pub fn unwrap_display<T>(r: Result<T, crate::error::Error>) -> T {
     match r {
         Ok(the_value) => the_value,
-        Err(r) => panic!("{}", r),
+        Err(r) => {
+            print_error(&r).unwrap();
+            panic!();
+        },
     }
 }
