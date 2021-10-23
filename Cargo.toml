@@ -1,14 +1,13 @@
 [package]
 name = "ron-reboot"
 description = "Highly experimental RON parser"
-version = "0.1.0-preview4"
+version = "0.1.0-preview5"
 edition = "2018"
 license = "Unlicense"
 documentation = "https://docs.rs/ron-reboot"
 homepage = "https://github.com/ron-rs/ron-reboot"
 repository = "https://github.com/ron-rs/ron-reboot"
 exclude = [
-    "examples",
     "tests",
     "scripts",
     "ron_files",
