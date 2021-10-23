@@ -1,7 +1,7 @@
 [package]
 name = "ron-reboot"
 description = "Highly experimental RON parser"
-version = "0.1.0-preview5"
+version = "0.1.0-preview6"
 edition = "2018"
 license = "Unlicense"
 documentation = "https://docs.rs/ron-reboot"

@@ -64,6 +64,8 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     {
         let res = match self.expr.value.take() {
             Unit => visitor.visit_unit(),
+            Optional(Some(mut o)) => visitor.visit_some(RonDeserializer { expr: &mut *o }),
+            Optional(None) => visitor.visit_none(),
             Bool(b) => visitor.visit_bool(b),
             Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
                 iter: t.elements.iter_mut(),
@@ -86,6 +88,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             Str(s) => visitor.visit_borrowed_str(s),
             String(s) => visitor.visit_string(s),
             Decimal(d) => visitor.visit_f64(d.into()),
+            // TODO: deserialize as enum?
             Tagged(t) => match t.untagged.value {
                 Untagged::Struct(mut s) => visitor.visit_map(StructDeserializer {
                     iter: s.fields.iter_mut(),
@@ -95,6 +98,7 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                     iter: t.elements.iter_mut(),
                 }),
                 Untagged::Unit => visitor.visit_borrowed_str(t.ident.value.0),
+                //_ => visitor.visit_enum(EnumDeserializer { tagged: &mut t }),
             },
         };
 

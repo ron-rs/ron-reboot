@@ -321,6 +321,7 @@ pub struct Tagged<'a> {
 #[cfg_attr(feature = "serde1_ast_derives", derive(Serialize))]
 pub enum Expr<'a> {
     Unit,
+    Optional(Option<Box<Spanned<Expr<'a>>>>),
     Tagged(Tagged<'a>),
     Bool(bool),
     Tuple(Tuple<'a>),

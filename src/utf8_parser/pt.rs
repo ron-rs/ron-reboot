@@ -418,6 +418,28 @@ pub struct Tagged<'a> {
     pub untagged: Spanned<'a, Untagged<'a>>,
 }
 
+impl<'a> Tagged<'a> {
+    pub fn is_optional(&self) -> bool {
+        match (self.ident.value.0, &self.untagged.value) {
+            ("Some", Untagged::Tuple(Tuple { elements })) if elements.len() == 1 => {
+                true
+            }
+            ("None", Untagged::Unit) => true,
+            _ => false,
+        }
+    }
+
+    pub fn into_optional(self) -> Option<Spanned<'a, Expr<'a>>> {
+        match (self.ident.value.0, self.untagged.value) {
+            ("Some", Untagged::Tuple(Tuple { mut elements })) if elements.len() == 1 => {
+                Some(elements.remove(0))
+            }
+            ("None", Untagged::Unit) => None,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 impl<'a> From<Tagged<'a>> for ast::Tagged<'a> {
     fn from(t: Tagged<'a>) -> Self {
         ast::Tagged {
@@ -455,6 +477,7 @@ impl<'a> From<Expr<'a>> for ast::Expr<'a> {
     fn from(e: Expr<'a>) -> Self {
         match e {
             Expr::Unit => ast::Expr::Unit,
+            Expr::Tagged(t) if t.is_optional() => ast::Expr::Optional(t.into_optional().map(|e| Box::new(e.into()))),
             Expr::Tagged(t) => ast::Expr::Tagged(t.into()),
             Expr::Bool(x) => ast::Expr::Bool(x),
             Expr::Tuple(x) => ast::Expr::Tuple(x.into()),

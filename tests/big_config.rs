@@ -34,7 +34,6 @@ pub struct Data {
 }
 
 #[test]
-#[ignore]
 fn big_config() {
     unwrap_display(from_str::<Config>(INPUT));
 }
