@@ -59,7 +59,9 @@ impl<'de> Deserializer<'de> for Value {
                 ident: tag,
                 value: Value::Tuple(None, untagged),
             }),
-            Value::Tuple(None, seq) => visitor.visit_seq(Seq { seq: seq.into_iter().rev().collect() }),
+            Value::Tuple(None, seq) => visitor.visit_seq(Seq {
+                seq: seq.into_iter().rev().collect(),
+            }),
             Value::Struct(Some(tag), untagged) => visitor.visit_enum(EnumDeserializer {
                 ident: tag,
                 value: Value::Struct(None, untagged),

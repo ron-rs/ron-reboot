@@ -1,4 +1,4 @@
-use ron_reboot::{Error, print_error, Value};
+use ron_reboot::{print_error, Error, Value};
 
 fn app() -> Result<(), Error> {
     let value: Value = r#"
@@ -11,7 +11,8 @@ MyConfig (
         "it's": true,
     },
 )
-    "#.parse()?;
+    "#
+    .parse()?;
 
     match value {
         Value::Struct(Some(ident), fields) => {
@@ -21,7 +22,7 @@ MyConfig (
                 println!("{}: {:?}", ident, value)
             }
         }
-        _ => unimplemented!()
+        _ => unimplemented!(),
     }
 
     Ok(())
