@@ -13,9 +13,8 @@ macro_rules! eval {
 
 #[cfg(test)]
 pub(crate) use eval;
-use crate::print_error;
 
-use crate::utf8_parser::ok::IOk;
+use crate::{print_error, utf8_parser::ok::IOk};
 
 pub trait TestMockNew {
     fn new_mocked() -> Self;
@@ -37,6 +36,6 @@ pub fn unwrap_display<T>(r: Result<T, crate::error::Error>) -> T {
         Err(r) => {
             print_error(&r).unwrap();
             panic!();
-        },
+        }
     }
 }

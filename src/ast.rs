@@ -77,6 +77,10 @@ impl<'a> Ident<'a> {
     pub fn from_str(input: &'a str) -> Self {
         Ident(input)
     }
+
+    pub fn into_string(self) -> String {
+        self.0.to_owned()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

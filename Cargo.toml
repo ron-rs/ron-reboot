@@ -27,7 +27,8 @@ default = ["utf8_parser", "utf8_parser_serde1"]
 utf8_parser = []
 utf8_parser_serde1 = ["serde", "utf8_parser"]
 
-value = ["serde"]
+value = []
+value_serde1 = ["serde", "value"]
 
 # === Other features ===
 serde1_ast_derives = ["serde/derive"] # Serialize derives for abstract syntax tree

@@ -1,7 +1,5 @@
 //! Parse tree
 
-use std::mem::replace;
-
 pub use crate::ast::Extension;
 use crate::{ast, utf8_parser::input::Input};
 
@@ -421,9 +419,7 @@ pub struct Tagged<'a> {
 impl<'a> Tagged<'a> {
     pub fn is_optional(&self) -> bool {
         match (self.ident.value.0, &self.untagged.value) {
-            ("Some", Untagged::Tuple(Tuple { elements })) if elements.len() == 1 => {
-                true
-            }
+            ("Some", Untagged::Tuple(Tuple { elements })) if elements.len() == 1 => true,
             ("None", Untagged::Unit) => true,
             _ => false,
         }
@@ -451,7 +447,6 @@ impl<'a> From<Tagged<'a>> for ast::Tagged<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr<'a> {
-    Unit,
     Tagged(Tagged<'a>),
     Bool(bool),
     Tuple(Tuple<'a>),
@@ -466,20 +461,15 @@ pub enum Expr<'a> {
     Decimal(Decimal),
 }
 
-impl<'a> Expr<'a> {
-    /// Replace expr with Unit, returning ownership of the contained expr
-    pub fn take(&mut self) -> Self {
-        replace(self, Expr::Unit)
-    }
-}
-
 impl<'a> From<Expr<'a>> for ast::Expr<'a> {
     fn from(e: Expr<'a>) -> Self {
         match e {
-            Expr::Unit => ast::Expr::Unit,
-            Expr::Tagged(t) if t.is_optional() => ast::Expr::Optional(t.into_optional().map(|e| Box::new(e.into()))),
+            Expr::Tagged(t) if t.is_optional() => {
+                ast::Expr::Optional(t.into_optional().map(|e| Box::new(e.into())))
+            }
             Expr::Tagged(t) => ast::Expr::Tagged(t.into()),
             Expr::Bool(x) => ast::Expr::Bool(x),
+            Expr::Tuple(x) if x.elements.is_empty() => ast::Expr::Unit,
             Expr::Tuple(x) => ast::Expr::Tuple(x.into()),
             Expr::List(x) => ast::Expr::List(x.into()),
             Expr::Map(x) => ast::Expr::Map(x.into()),
