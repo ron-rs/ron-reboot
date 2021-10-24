@@ -15,7 +15,16 @@ pub fn sign(input: Input) -> IResultLookahead<Sign> {
     one_of_chars("+-", &[Sign::Positive, Sign::Negative])(input)
 }
 
-fn parse_u64(input: Input) -> OutputResult<u64> {
+fn parse_u64_radix(radix_input: (u32, Input)) -> OutputResult<u64> {
+    u64::from_str_radix(radix_input.1.fragment(), radix_input.0).map_err(|e| {
+        InputParseErr::fatal(ErrorTree::Base {
+            location: radix_input.1,
+            kind: BaseErrorKind::External(Box::new(e)),
+        })
+    })
+}
+
+fn parse_u64_dec(input: Input) -> OutputResult<u64> {
     u64::from_str(input.fragment()).map_err(|e| {
         InputParseErr::fatal(ErrorTree::Base {
             location: input,
@@ -25,12 +34,12 @@ fn parse_u64(input: Input) -> OutputResult<u64> {
 }
 
 fn decimal_unsigned(input: Input) -> IResultLookahead<u64> {
-    map_res(take_while(is_digit), parse_u64)(input)
+    map_res(take_while(is_digit), parse_u64_dec)(input)
 }
 
 fn fractional_part(input: Input) -> IResultLookahead<(u64, u16)> {
     map_res(take_while(is_digit), |input| {
-        Ok((parse_u64(input)?, input.len() as u16))
+        Ok((parse_u64_dec(input)?, input.len() as u16))
     })(input)
 }
 
@@ -43,12 +52,22 @@ fn decimal_unsigned_no_leading_zero(input: Input) -> IResultLookahead<u64> {
                 take_while(is_digit),
             ),
         )),
-        parse_u64,
+        parse_u64_dec,
+    )(input)
+}
+
+fn alt_radix_unsigned(input: Input) -> IResultLookahead<u64> {
+    map_res(
+        pair(
+                lookahead(preceded(one_char('0'), one_of_chars("box", &[2, 8, 16]))),
+            take_while(|c| c.is_ascii_hexdigit()),
+        ),
+        parse_u64_radix,
     )(input)
 }
 
 pub fn unsigned_integer(input: Input) -> IResultLookahead<UnsignedInteger> {
-    map(decimal_unsigned_no_leading_zero, |number| UnsignedInteger {
+    map(alt2(alt_radix_unsigned, decimal_unsigned_no_leading_zero), |number| UnsignedInteger {
         number,
     })(input)
 }
@@ -138,6 +157,32 @@ mod tests {
         assert_eq!(eval!(sign, "+"), Sign::Positive);
         assert_eq!(eval!(sign, "-"), Sign::Negative);
         assert!(eval!(@result sign, "*").is_err());
+    }
+
+    #[test]
+    fn radix_integers() {
+        assert_eq!(
+            eval!(integer, "0x0"),
+            crate::utf8_parser::pt::Integer::new_test(None, 0)
+        );
+        assert_eq!(
+            eval!(integer, "0x1"),
+            crate::utf8_parser::pt::Integer::new_test(None, 1)
+        );
+        assert_eq!(
+            eval!(integer, "0x1B"),
+            crate::utf8_parser::pt::Integer::new_test(None, 27)
+        );
+
+        assert_eq!(
+            eval!(integer, "0o17"),
+            crate::utf8_parser::pt::Integer::new_test(None, 15)
+        );
+
+        assert_eq!(
+            eval!(integer, "0b0101"),
+            crate::utf8_parser::pt::Integer::new_test(None, 5)
+        );
     }
 
     #[test]
