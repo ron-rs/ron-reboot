@@ -81,6 +81,34 @@ pub fn tag(tag: &'static str) -> impl Clone + Fn(Input) -> IResultLookahead<Inpu
     }
 }
 
+pub fn repeat_char<'a>(
+    c: char,
+    n: usize,
+) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, Input<'a>> {
+    move |input| {
+        if n == 0 {
+            return Ok(input.take_split(0));
+        }
+
+        let (char_index, char_byte_offset) = input
+            .fragment()
+            .char_indices()
+            .take_while(|(i, x)| *x == c && *i < n)
+            .map(|(char_byte_offset, _)| char_byte_offset)
+            .enumerate()
+            .last()
+            .ok_or_else(|| {
+                InputParseErr::fatal(ErrorTree::expected(input, Expectation::Char(c)))
+            })?;
+
+        if n == char_index + 1 {
+            Ok(input.take_split(char_byte_offset))
+        } else {
+            base_err(input.slice(char_byte_offset..), Expectation::Char(c))
+        }
+    }
+}
+
 pub fn one_char(c: char) -> impl Fn(Input) -> IResultLookahead<char> {
     move |input: Input| match input.chars().next().map(|t| {
         let b = t == c;

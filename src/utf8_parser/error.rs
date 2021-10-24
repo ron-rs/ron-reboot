@@ -93,7 +93,10 @@ pub enum Expectation {
     /// A space or tab was expected.
     Space,
 
-    /// A space, tab, newline, or carriage return was expected.
+    /// The ned of a raw string was expected.
+    RawStringEnd,
+
+    /// The closing */ of a block comment.
     BlockCommentEnd,
 
     /// A space, tab, newline, or carriage return was expected.
@@ -138,6 +141,7 @@ impl Display for Expectation {
             Expectation::UnicodeHexSequence { got } => {
                 write!(f, "a valid unicode hex sequence (got 0x{:X})", got)
             }
+            Expectation::RawStringEnd => write!(f, "closing raw string sequence"),
         }
     }
 }

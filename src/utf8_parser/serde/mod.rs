@@ -2,7 +2,7 @@ use std::{fs::File, io::Read, path::Path};
 
 use serde::de::DeserializeOwned;
 
-pub use self::de::{from_str, RonDeserializer as Deserializer};
+pub use self::de::from_str;
 use crate::Error;
 
 mod de;

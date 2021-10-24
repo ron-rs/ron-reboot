@@ -197,9 +197,13 @@ fn excl_mark() {
     .unwrap_err();
     assert_eq!(
         format!("{}", err),
-        r#"could not match "expression" at 3:23 (`!`) because
+        r#"could not match "expression" at 2:10 (`A`) because
     none of these matched:
-        expected one of '(', '{', '"', '[', 't', 'f', '+', '-', '.', '0', '1', '2', '3', '4', '5', '6', '7', '8' or '9' at 3:23 (`!`) or
-        expected one of an ascii letter or '_' at 3:23 (`!`)"#
+        could not match "raw string" at 2:10 (`A`) because
+            expected 'r' at 2:10 (`A`) or
+        could not match "expression" at 3:23 (`!`) because
+            none of these matched:
+                expected one of '(', '{', '"', '[', 't', 'f', '+', '-', '.', '0', '1', '2', '3', '4', '5', '6', '7', '8' or '9' at 3:23 (`!`) or
+                expected one of an ascii letter or '_' at 3:23 (`!`)"#
     );
 }

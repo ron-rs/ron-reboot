@@ -38,6 +38,8 @@ impl<'a, O> IOk<'a, O> {
         })
     }
 
+    /// Run the `parser` on the remaining input,
+    /// calling `map` with the already parsed input and the result of `parser`.
     pub fn then_res<P, Q>(
         self,
         mut parser: impl FnMut(Input<'a>) -> IResultLookahead<'a, P>,

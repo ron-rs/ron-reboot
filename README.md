@@ -75,8 +75,8 @@ error: invalid type: map, expected a string
 
 ## TODO list
 
+* Extensions
 * Raw identifiers
-* Raw strings
 
 ## Contributions
 

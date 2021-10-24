@@ -9,6 +9,7 @@ use crate::utf8_parser::{
     },
     containers::tagged,
     decimal, escaped_string, list,
+    primitive::raw_str,
     pt::{Attribute, Expr, Extension, Ron, SignedInteger, UnsignedInteger},
     rmap, signed_integer, tuple, unescaped_str, unsigned_integer, untagged_struct, ErrorTree,
     Expectation, IResultLookahead, Input, InputParseErr, InputParseError,
@@ -131,7 +132,7 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
             map(decimal, Expr::Decimal),
             map(unsigned_integer, UnsignedInteger::to_expr),
         )(input),
-        ExprClass::LeadingIdent => map(tagged, Expr::Tagged)(input),
+        ExprClass::LeadingIdent => alt2(map(raw_str, Expr::Str), map(tagged, Expr::Tagged))(input),
     }
 }
 

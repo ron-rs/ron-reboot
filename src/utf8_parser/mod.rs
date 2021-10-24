@@ -1,6 +1,4 @@
 pub use self::error::{ErrorTree, InputParseError};
-#[cfg(feature = "utf8_parser_serde1")]
-pub use self::serde::from_str;
 use self::{
     containers::{list, rmap, tuple, untagged_struct},
     error::{BaseErrorKind, Expectation, InputParseErr},
@@ -35,7 +33,7 @@ mod pt;
 /// Parsers for arbitrary RON expression & top-level RON
 mod ron;
 #[cfg(feature = "utf8_parser_serde1")]
-mod serde;
+pub mod serde;
 #[cfg(test)]
 mod tests;
 /// Utility functions for parsing

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ron_reboot::{from_str, utf8_parser::test_util::unwrap_display};
+use ron_reboot::{from_str_serde, utf8_parser::test_util::unwrap_display};
 use serde::Deserialize;
 
 const INPUT: &str = include_str!("big_config.ron");
@@ -35,5 +35,5 @@ pub struct Data {
 
 #[test]
 fn big_config() {
-    unwrap_display(from_str::<Config>(INPUT));
+    unwrap_display(from_str_serde::<Config>(INPUT));
 }

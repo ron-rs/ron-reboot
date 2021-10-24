@@ -142,6 +142,35 @@ where
     }
 }
 
+/// Parser eats input until `f` parses (inclusive), but discards `f`'s fragment
+pub fn take_until<'a, O, F>(mut f: F) -> impl FnMut(Input<'a>) -> IResultLookahead<'a, Input<'a>>
+where
+    F: FnMut(Input<'a>) -> IResultLookahead<'a, O>,
+{
+    move |input: Input| {
+        let mut last_discarded_err = None;
+
+        for i in 0..input.len() {
+            match input
+                .take_split(i)
+                .then_res(&mut f, |input, res| res.map(|ok| ok.replace(input)))
+            {
+                Err(InputParseErr::Fatal(e)) => return Err(InputParseErr::Fatal(e)),
+                // TODO: discarding many errors here
+                Err(InputParseErr::Recoverable(e)) => {
+                    last_discarded_err = Some(e);
+                }
+                Ok(input_before_f) => return Ok(input_before_f),
+            }
+        }
+
+        // TODO: creating a recoverable error here in case of eof
+        Err(InputParseErr::Recoverable(last_discarded_err.unwrap_or(
+            InputParseError::expected(input, Expectation::Something),
+        )))
+    }
+}
+
 pub fn context<'a, F, O>(
     context: &'static str,
     f: F,

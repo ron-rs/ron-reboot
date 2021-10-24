@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, iter::FromIterator};
 
-use ron_reboot::{from_str, utf8_parser::test_util::unwrap_display};
+use ron_reboot::{from_str_serde, utf8_parser::test_util::unwrap_display};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -16,7 +16,7 @@ struct MyStruct {
 #[test]
 fn flattened_struct_support() {
     assert_eq!(
-        unwrap_display(from_str::<MyStruct>(
+        unwrap_display(from_str_serde::<MyStruct>(
             r#"
 (
     foo: false,
@@ -46,7 +46,7 @@ enum MyEnum {
 #[test]
 fn untagged_enum_support() {
     assert_eq!(
-        unwrap_display(from_str::<MyEnum>(
+        unwrap_display(from_str_serde::<MyEnum>(
             r#"
 MyStruct(
     foo: false,
@@ -66,7 +66,7 @@ MyStruct(
     );
 
     assert_eq!(
-        unwrap_display(from_str::<MyEnum>(
+        unwrap_display(from_str_serde::<MyEnum>(
             r#"
 false
         "#
@@ -85,7 +85,7 @@ enum TypeTagged {
 #[test]
 fn adjacently_tagged_enum_support() {
     assert_eq!(
-        unwrap_display(from_str::<TypeTagged>(
+        unwrap_display(from_str_serde::<TypeTagged>(
             r#"
 (
     t: MyStruct,
@@ -108,7 +108,7 @@ fn adjacently_tagged_enum_support() {
     );
 
     assert_eq!(
-        unwrap_display(from_str::<TypeTagged>(
+        unwrap_display(from_str_serde::<TypeTagged>(
             r#"
 (
     t: Bool,

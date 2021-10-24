@@ -15,14 +15,14 @@ pub fn validate_file(p: impl AsRef<Path>) -> Result<(), ron_reboot::Error> {
 pub fn validate_typed_str<'a, T: serde::Deserialize<'a>>(
     s: &'a str,
 ) -> Result<(), ron_reboot::Error> {
-    ron_reboot::utf8_parser::from_str(s)
+    ron_reboot::from_str_serde(s)
 }
 
 #[cfg(feature = "serde1")]
 pub fn validate_typed_file<T: serde::de::DeserializeOwned>(
     p: impl AsRef<Path>,
 ) -> Result<(), ron_reboot::Error> {
-    ron_reboot::utf8_parser::from_str(&read_fs_string(p)?)
+    ron_reboot::utf8_parser::serde::from_str(&read_fs_string(p)?)
 }
 
 fn read_fs_string(path: impl AsRef<Path>) -> Result<String, ron_reboot::Error> {

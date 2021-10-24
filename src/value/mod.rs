@@ -232,7 +232,7 @@ mod tests {
     where
         T: Debug + serde::Deserialize<'de> + PartialEq,
     {
-        use crate::from_str;
+        use crate::utf8_parser::serde::from_str;
 
         let direct: T = from_str(s).unwrap();
         let value_serde: Value = from_str(s).unwrap();
@@ -248,9 +248,9 @@ mod tests {
     where
         T: Debug + serde::Deserialize<'de> + PartialEq,
     {
-        use crate::{from_str, utf8_parser::ast_from_str};
+        use crate::{from_str_serde, utf8_parser::ast_from_str};
 
-        let direct: T = from_str(s).unwrap();
+        let direct: T = from_str_serde(s).unwrap();
         let value: Value = ast_from_str(s).unwrap().into();
         let value = T::deserialize(value).unwrap();
 
@@ -309,7 +309,7 @@ mod tests {
     }
 
     fn eval_serde_val(s: &str) -> Value {
-        crate::utf8_parser::from_str(s).unwrap()
+        crate::utf8_parser::serde::from_str(s).unwrap()
     }
 
     #[test]
