@@ -47,3 +47,7 @@ required-features = ["serde1_ast_derives"]
 [[example]]
 name = "simple"
 required-features = ["serde/derive", "utf8_parser_serde1"]
+
+[[example]]
+name = "value_no_serde"
+required-features = ["value"]
