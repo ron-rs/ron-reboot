@@ -90,6 +90,7 @@ pub fn repeat_char<'a>(
             return Ok(input.take_split(0));
         }
 
+        // char_index is the index of the (first) char after the repeated `c`
         let (char_index, char_byte_offset) = input
             .fragment()
             .char_indices()
@@ -102,9 +103,11 @@ pub fn repeat_char<'a>(
             })?;
 
         if n == char_index + 1 {
-            Ok(input.take_split(char_byte_offset))
-        } else {
+            Ok(input.take_split(char_byte_offset + c.len_utf8()))
+        } else if char_index + 1 < n {
             base_err(input.slice(char_byte_offset..), Expectation::Char(c))
+        } else {
+            unimplemented!()
         }
     }
 }
@@ -161,6 +164,13 @@ pub fn one_of_tags<O: Clone>(
 mod tests {
     use super::*;
     use crate::utf8_parser::test_util::eval;
+
+    #[test]
+    fn repeated() {
+        assert_eq!(eval!(repeat_char('a', 3), "aaa").fragment(), "aaa");
+        assert_eq!(eval!(repeat_char('a', 3), "aaab").fragment(), "aaa");
+        assert_eq!(eval!(repeat_char('a', 1), "aab").fragment(), "a");
+    }
 
     #[test]
     fn basic_eol_comment() {

@@ -77,6 +77,7 @@ error: invalid type: map, expected a string
 
 * Extensions
 * Raw identifiers
+* Hex / binary numbers
 
 ## Contributions
 

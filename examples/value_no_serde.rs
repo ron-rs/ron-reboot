@@ -1,17 +1,17 @@
 use ron_reboot::{print_error, Error, Value};
 
 fn app() -> Result<(), Error> {
-    let value: Value = r#"
+    let value: Value = r##"
 MyConfig (
     accurate: Types(are: "awesome"),
-    even: ["tuples", "and", "lists"],
+    even: [r#"tuples"#, "and", "lists"],
     can: {
         "be": ("told", "apart!"),
 
         "it's": true,
     },
 )
-    "#
+    "##
     .parse()?;
 
     match value {
