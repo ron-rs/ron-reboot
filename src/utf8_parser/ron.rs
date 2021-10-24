@@ -132,7 +132,9 @@ fn expr_inner(input: Input) -> IResultLookahead<Expr> {
             map(decimal, Expr::Decimal),
             map(unsigned_integer, UnsignedInteger::to_expr),
         )(input),
-        ExprClass::LeadingIdent => alt2(map(raw_str, Expr::Str), map(tagged, Expr::Tagged))(input),
+        ExprClass::LeadingIdent => {
+            alt2(map(raw_str, Expr::Str), map(tagged, Expr::Tagged))(input)
+        }
     }
 }
 

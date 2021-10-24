@@ -115,7 +115,7 @@ where
                 Err(InputParseErr::recoverable(ErrorTree::alt(first, second)))
             }
             Err(InputParseErr::Fatal(second)) => {
-                Err(InputParseErr::fatal(ErrorTree::alt(first, second)))
+                Err(InputParseErr::fatal(second))
             }
             res => res,
         },

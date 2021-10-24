@@ -4,7 +4,7 @@ fn app() -> Result<(), Error> {
     let value: Value = r##"
 MyConfig (
     accurate: Types(are: "awesome"),
-    even: [r#"tuples"#, "and", "lists"],
+    even: [r#"tuples", "and", "lists"],
     can: {
         "be": ("told", "apart!"),
 
