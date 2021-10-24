@@ -74,7 +74,7 @@ pub const fn is_ident_other_char(c: char) -> bool {
     ENCODINGS[c as u8 as usize] & IDENT_OTHER_CHAR != 0
 }
 
-const fn is_ident_raw_char(c: char) -> bool {
+pub const fn is_ident_raw_char(c: char) -> bool {
     ENCODINGS[c as u8 as usize] & IDENT_RAW_CHAR != 0
 }
 

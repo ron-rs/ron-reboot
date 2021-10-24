@@ -4,12 +4,19 @@ use crate::utf8_parser::{
     pt::Ident,
     Expectation, IResultLookahead, Input,
 };
+use crate::utf8_parser::basic::tag;
+use crate::utf8_parser::char_categories::is_ident_raw_char;
+use crate::utf8_parser::combinators::{alt2, lookahead};
 
 fn ident_first_char(input: Input) -> IResultLookahead<Input> {
     take1_if(
         is_ident_first_char,
         Expectation::OneOfExpectations(&[Expectation::Alpha, Expectation::Char('_')]),
     )(input)
+}
+
+fn raw_ident_inner(input: Input) -> IResultLookahead<Input> {
+    preceded(lookahead(tag("r#")), take_while(is_ident_raw_char))(input)
 }
 
 fn ident_inner(input: Input) -> IResultLookahead<Input> {
@@ -21,7 +28,7 @@ fn ast_ident_from_input(input: Input) -> Ident {
 }
 
 pub fn ident(input: Input) -> IResultLookahead<Ident> {
-    context("ident", map(ident_inner, ast_ident_from_input))(input)
+    context("ident", map(alt2(raw_ident_inner, ident_inner), ast_ident_from_input))(input)
 }
 
 #[cfg(test)]
@@ -55,5 +62,12 @@ mod tests {
             eval!(ident, "doesany1usenumbers"),
             Ident("doesany1usenumbers")
         );
+    }
+
+    #[test]
+    fn raw_ident() {
+        assert_eq!(eval!(ident, "r#Config"), Ident("Config"));
+        assert_eq!(eval!(ident, "r#kebab-case"), Ident("kebab-case"));
+        assert_eq!(eval!(ident, "r#-very.wild+"), Ident("-very.wild+"));
     }
 }
