@@ -19,6 +19,7 @@ use crate::{
         ast_from_str,
     },
 };
+use crate::ast::{Attribute, Extension};
 
 pub fn from_str<'a, T>(s: &'a str) -> Result<T, crate::error::Error>
 where
@@ -32,8 +33,37 @@ where
         .map_err(|e| e.context_file_content(s.to_owned()))
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct Extensions {
+    implicit_some: bool,
+    unwrap_newtypes: bool,
+}
+
+impl Extensions {
+    fn from_attrs(ron: &ast::Ron) -> Self {
+        let mut extensions = Extensions::default();
+
+        for attribute in &ron.attributes {
+            match &attribute.value {
+                Attribute::Enable(list) => for extension in &list.value {
+                    match extension.value {
+                        Extension::UnwrapNewtypes => {
+                            extensions.unwrap_newtypes = true;
+                        }
+                        Extension::ImplicitSome => {
+                            extensions.implicit_some = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        extensions
+    }
+}
+
 pub struct RonDeserializer<'a, 'de> {
-    //ron: ast::Ron<'a>,
+    extensions: Extensions,
     expr: &'a mut ast::Spanned<ast::Expr<'de>>,
 }
 
@@ -44,6 +74,7 @@ impl<'a, 'de> RonDeserializer<'a, 'de> {
     /// thus cannot be used anymore.
     pub fn from_ron(ron: &'a mut ast::Ron<'de>) -> Self {
         RonDeserializer {
+            extensions: Extensions::from_attrs(ron),
             expr: &mut ron.expr,
         }
     }
@@ -64,20 +95,24 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
     {
         let res = match self.expr.value.take() {
             Unit => visitor.visit_unit(),
-            Optional(Some(mut o)) => visitor.visit_some(RonDeserializer { expr: &mut *o }),
+            Optional(Some(mut o)) => visitor.visit_some(RonDeserializer { extensions: self.extensions, expr: &mut *o }),
             Optional(None) => visitor.visit_none(),
             Bool(b) => visitor.visit_bool(b),
             Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                extensions: self.extensions,
                 iter: t.elements.iter_mut(),
             }),
             List(mut l) => visitor.visit_seq(SeqDeserializer {
+                extensions: self.extensions,
                 iter: l.elements.iter_mut(),
             }),
             Map(mut m) => visitor.visit_map(MapDeserializer {
+                extensions: self.extensions,
                 iter: m.entries.iter_mut(),
                 value: None,
             }),
             Struct(mut s) => visitor.visit_map(StructDeserializer {
+                extensions: self.extensions,
                 iter: s.fields.iter_mut(),
                 value: None,
             }),
@@ -91,10 +126,12 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
             // TODO: deserialize as enum?
             Tagged(t) => match t.untagged.value {
                 Untagged::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                    extensions: self.extensions,
                     iter: s.fields.iter_mut(),
                     value: None,
                 }),
                 Untagged::Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                    extensions: self.extensions,
                     iter: t.elements.iter_mut(),
                 }),
                 Untagged::Unit => visitor.visit_borrowed_str(t.ident.value.0),
@@ -133,10 +170,15 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
                 ..
             })
             | ast::Expr::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                extensions: self.extensions,
                 iter: s.fields.iter_mut(),
                 value: None,
             }),
-            _ => self.deserialize_any(visitor),
+            x => {
+                self.expr.value = x;
+
+                self.deserialize_any(visitor)
+            },
         };
 
         res.map_err(|e| e.context_loc(start_loc, end_loc))
@@ -154,9 +196,13 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
         let start_loc = self.expr.start;
         let end_loc = self.expr.end;
         let res = match self.expr.value.take() {
-            Tagged(mut t) => visitor.visit_enum(EnumDeserializer { tagged: &mut t }),
+            Tagged(mut t) => visitor.visit_enum(EnumDeserializer { extensions: self.extensions, tagged: &mut t }),
             // probably no enum and will error
-            _ => self.deserialize_any(visitor),
+            x => {
+                self.expr.value = x;
+
+                self.deserialize_any(visitor)
+            },
         };
 
         res.map_err(|e| e.context_loc(start_loc, end_loc))
@@ -179,14 +225,72 @@ impl<'a, 'de> Deserializer<'de> for RonDeserializer<'a, 'de> {
         visitor.visit_unit()
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        match self.expr.value.take() {
+            Optional(None) => visitor.visit_none(),
+            Optional(Some(mut e)) => visitor.visit_some(RonDeserializer {
+                extensions: self.extensions,
+                expr: &mut e,
+            }),
+            x => {
+                self.expr.value = x;
+
+                let de = RonDeserializer {
+                    extensions: self.extensions,
+                    expr: self.expr,
+                };
+
+                if self.extensions.implicit_some {
+                    visitor.visit_some(de)
+                } else {
+                    de.deserialize_any(visitor)
+                }
+            }
+        }
+    }
+
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        match self.expr.value.take() {
+            ast::Expr::Tagged(ast::Tagged { ident, .. }) if ident.value.0 != name => {
+                Err(Error::custom(format!(
+                    "invalid newtype struct type: `{}`, expected `{}`",
+                    ident.value.0, name
+                ))
+                    .context_loc(ident.start, ident.end))
+            }
+            ast::Expr::Tagged(ast::Tagged {
+                                  untagged:
+                                  ast::Spanned {
+                                      value: Untagged::Tuple(mut t),
+                                      ..
+                                  },
+                                  ..
+                              })
+            | ast::Expr::Tuple(mut t) if t.elements.len() == 1 => visitor.visit_newtype_struct(RonDeserializer {
+                extensions: self.extensions,
+                expr: t.elements.iter_mut().next().unwrap(),
+            }),
+            x => {
+                self.expr.value = x;
+
+                if self.extensions.unwrap_newtypes {
+                    visitor.visit_newtype_struct(self)
+                } else {
+                    self.deserialize_any(visitor)
+                }
+            },
+        }
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char string str
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        bytes byte_buf unit unit_struct seq tuple
         tuple_struct map
     }
 }
 
 struct SeqDeserializer<'a, 'de> {
+    extensions: Extensions,
     iter: std::slice::IterMut<'a, ast::Spanned<ast::Expr<'de>>>,
 }
 
@@ -199,7 +303,7 @@ impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
     {
         match self.iter.next() {
             Some(x) => seed
-                .deserialize(RonDeserializer { expr: x })
+                .deserialize(RonDeserializer { extensions: self.extensions, expr: x })
                 .map(Some)
                 .map_err(|e| e.context_loc(x.start.into(), x.end.into())),
             None => Ok(None),
@@ -208,6 +312,7 @@ impl<'a, 'de> SeqAccess<'de> for SeqDeserializer<'a, 'de> {
 }
 
 struct StructDeserializer<'a, 'de> {
+    extensions: Extensions,
     iter: std::slice::IterMut<'a, ast::Spanned<ast::KeyValue<'de, ast::Ident<'de>>>>,
     value: Option<&'a mut ast::Spanned<ast::Expr<'de>>>,
 }
@@ -243,7 +348,7 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
             .value
             .take()
             .expect("called next_value_seed before next_key_seed");
-        seed.deserialize(RonDeserializer { expr: x })
+        seed.deserialize(RonDeserializer { extensions: self.extensions, expr: x })
             .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
@@ -264,6 +369,7 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
                     })
                     .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
                 let value = vseed.deserialize(RonDeserializer {
+                    extensions: self.extensions,
                     expr: &mut x.value.value,
                 })?;
 
@@ -279,6 +385,7 @@ impl<'a, 'de> MapAccess<'de> for StructDeserializer<'a, 'de> {
 }
 
 struct MapDeserializer<'a, 'de> {
+    extensions: Extensions,
     iter: std::slice::IterMut<'a, ast::Spanned<ast::KeyValue<'de, ast::Expr<'de>>>>,
     value: Option<&'a mut ast::Spanned<ast::Expr<'de>>>,
 }
@@ -298,6 +405,7 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
                 self.value = Some(&mut x.value.value);
 
                 seed.deserialize(RonDeserializer {
+                    extensions: self.extensions,
                     expr: &mut x.value.key,
                 })
                 .map(Some)
@@ -315,7 +423,7 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
             .value
             .take()
             .expect("called next_value_seed before next_key_seed");
-        seed.deserialize(RonDeserializer { expr: x })
+        seed.deserialize(RonDeserializer { extensions: self.extensions, expr: x })
             .map_err(|e| e.context_loc(x.start.into(), x.end.into()))
     }
 
@@ -332,11 +440,13 @@ impl<'a, 'de> MapAccess<'de> for MapDeserializer<'a, 'de> {
             Some(x) => {
                 let key = kseed
                     .deserialize(RonDeserializer {
+                        extensions: self.extensions,
                         expr: &mut x.value.key,
                     })
                     .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
                 let value = vseed
                     .deserialize(RonDeserializer {
+                        extensions: self.extensions,
                         expr: &mut x.value.value,
                     })
                     .map_err(|e| e.context_loc(x.start.into(), x.end.into()))?;
@@ -379,6 +489,7 @@ impl<'a, 'de> Deserializer<'de> for IdentDeserializer<'a, 'de> {
 }
 
 struct EnumDeserializer<'a, 'de> {
+    extensions: Extensions,
     tagged: &'a mut ast::Tagged<'de>,
 }
 
@@ -397,6 +508,7 @@ impl<'a, 'de> EnumAccess<'de> for EnumDeserializer<'a, 'de> {
         Ok((
             variant_ident,
             UntaggedDeserializer {
+                extensions: self.extensions,
                 untagged: &mut self.tagged.untagged,
             },
         ))
@@ -404,6 +516,7 @@ impl<'a, 'de> EnumAccess<'de> for EnumDeserializer<'a, 'de> {
 }
 
 struct UntaggedDeserializer<'a, 'de> {
+    extensions: Extensions,
     untagged: &'a mut ast::Spanned<ast::Untagged<'de>>,
 }
 
@@ -425,6 +538,7 @@ impl<'a, 'de> VariantAccess<'de> for UntaggedDeserializer<'a, 'de> {
         match self.untagged.value.take() {
             Untagged::Struct(_) => todo!(),
             Untagged::Tuple(mut t) => seed.deserialize(RonDeserializer {
+                extensions: self.extensions,
                 expr: t.elements.iter_mut().next().ok_or_else(|| Error::custom("invalid enum variant, got zero tuple elements, but expected one (newtype variant)"))?
             }),
             Untagged::Unit => todo!(),
@@ -438,6 +552,7 @@ impl<'a, 'de> VariantAccess<'de> for UntaggedDeserializer<'a, 'de> {
         match self.untagged.value.take() {
             Untagged::Struct(_) => todo!(),
             Untagged::Tuple(mut t) => visitor.visit_seq(SeqDeserializer {
+                extensions: self.extensions,
                 iter: t.elements.iter_mut(),
             }),
             Untagged::Unit => todo!(),
@@ -454,6 +569,7 @@ impl<'a, 'de> VariantAccess<'de> for UntaggedDeserializer<'a, 'de> {
     {
         match self.untagged.value.take() {
             Untagged::Struct(mut s) => visitor.visit_map(StructDeserializer {
+                extensions: self.extensions,
                 iter: s.fields.iter_mut(),
                 value: None,
             }),

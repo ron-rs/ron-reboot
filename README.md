@@ -64,18 +64,14 @@ error: invalid type: map, expected a string
 
 | Goal                                             | Status                                             |
 |--------------------------------------------------|----------------------------------------------------|
-| Parser generating AST                            | :hourglass_flowing_sand: working, 95% complete     |
+| Parser generating AST                            | :heavy_check_mark: done                            |
 | Parser generating beautiful errors               | :heavy_check_mark: done                            |
 | Accurate Value deserialization from AST          | :heavy_check_mark: done                            |
 | Replace nom combinators                          | :heavy_check_mark: done                            |
-| Spans in AST (locations for error reporting)     | :heavy_check_mark: implemented                     |
+| Spans in AST (locations for error reporting)     | :heavy_check_mark: done                            |
 | Serde Deserializer using AST                     | :heavy_check_mark: done                            |
 | Serde Deserializer generating beautiful errors   | :heavy_check_mark: done                            |
 | `ron-edit` (format & comments preserving writer) | :x: to be done                                     |
-
-## TODO list
-
-* Extensions
 
 ## Contributions
 
