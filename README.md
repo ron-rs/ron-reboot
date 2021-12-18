@@ -76,4 +76,4 @@ error: invalid type: map, expected a string
 ## Contributions
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you,
-shall be licensed according to the license of this project (The Unlicense), without any additional terms or conditions.
+shall be licensed according to the license of this project (Apache-2.0), without any additional terms or conditions.
